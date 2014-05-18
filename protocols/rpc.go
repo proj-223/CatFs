@@ -26,7 +26,10 @@ type ClientMaster interface {
 	GetBlockLocation(query *BlockQueryParam, result []*CatBlock) error
 
 	// Create a file in a given path
-	Create(param *CreateFileParam, filestatus *CatFileStatus) error
+	Create(param *CreateFileParam, reponse *OpenFileResponse) error
+
+	// Open a file to add block
+	Open(param *OpenFileParam, response *OpenFileResponse) error
 
 	// TODO Append
 
@@ -36,8 +39,9 @@ type ClientMaster interface {
 	// Add a block to a specific path (file)
 	AddBlock(param *AddBlockParam, block *CatBlock) error
 
-	// Complete an operation
-	Complete(param *CompleteParam, succ *bool) error
+	// Complete an operation,
+	// delete the lease (lock)
+	Close(param *CloseParam, succ *bool) error
 
 	// Rename
 	Rename(param *RenameParam, succ *bool) error

@@ -49,7 +49,7 @@ type CatLease struct {
 }
 
 type CatFileLease struct {
-	// The id the the ease
+	// The id the the lease
 	// It works like a transaction ID
 	ID string
 	// Type of the lease

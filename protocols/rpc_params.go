@@ -38,7 +38,26 @@ type CreateFileParam struct {
 	Path string
 	// Ower of the file
 	Ower *string
-	// The lease of a file
+}
+
+const (
+	OPEN_MODE_READ = iota
+	OPEN_MODE_WRITE
+)
+
+type OpenFileParam struct {
+	// The abs path of the file
+	Path string
+	// Ower of the file
+	Ower *string
+	// Open mode read or write
+	Mode int
+}
+
+type OpenFileResponse struct {
+	// the status of the file
+	Filestatus *CatFileStatus
+	// the file lease
 	Lease *CatFileLease
 }
 
@@ -58,7 +77,7 @@ type AbandonBlockParam struct {
 	Lease *CatFileLease
 }
 
-type CompleteParam struct {
+type CloseParam struct {
 	// The abs path of the file
 	Path string
 	// The lease of a file
