@@ -26,7 +26,7 @@ type ClientMaster interface {
 	GetBlockLocation(query *BlockQueryParam, result []*CatBlock) error
 
 	// Create a file in a given path
-	Create(param *CreateFileParam, reponse *OpenFileResponse) error
+	Create(param *CreateFileParam, response *OpenFileResponse) error
 
 	// Open a file to add block
 	Open(param *OpenFileParam, response *OpenFileResponse) error
