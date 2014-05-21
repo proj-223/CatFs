@@ -1,10 +1,15 @@
 package utils
 
 import (
+	"errors"
 	"github.com/proj-223/CatFs/config"
 	"github.com/proj-223/CatFs/protocols"
 	"log"
 	"net"
+)
+
+const (
+	Block_Server_START_MSG = "CatFS Data Block Server are start: %s\n"
 )
 
 const (
@@ -19,6 +24,8 @@ const (
 
 var (
 	RESPONSE_PELEASE_SEND = []byte("please send")
+
+	ErrShutdown = errors.New("Operation Error")
 )
 
 type BlockRequest struct {
@@ -36,18 +43,26 @@ func BlockRequestFromByte(b []byte) *BlockRequest {
 type BlockServer struct {
 	transactions map[string]chan []byte
 	blockSize    int64
+	conf         *config.BlockServerConfig
 }
 
 // Start by DataNode
 // It will start an go routine waiting for block request
-func (self *BlockServer) Start(conf *config.BlockServerConfig) error {
-	self.blockSize = conf.BlockSize
-	listener, err := net.Listen("tcp", ":"+conf.Port)
+func (self *BlockServer) Serve() error {
+	listener, err := net.Listen("tcp", ":"+self.conf.Port)
 	if err != nil {
 		return err
 	}
-	go self.start(listener)
-	return nil
+	log.Printf(Block_Server_START_MSG, self.conf.Port)
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Error accept: %s", err.Error())
+			continue
+		}
+		go self.handleRequest(conn)
+	}
+	return ErrShutdown
 }
 
 // DataServer will receive an transaction request and it will call this
@@ -61,18 +76,6 @@ func (self *BlockServer) StartTransaction(lease *protocols.CatLease, c chan []by
 func (self *BlockServer) StopTransaction(lease *protocols.CatLease) {
 	// delete the transaction from map
 	delete(self.transactions, lease.ID)
-}
-
-// Go routine for start the block server
-func (self *BlockServer) start(listener net.Listener) {
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Printf("Error accept: %s", err.Error())
-			continue
-		}
-		go self.handleRequest(conn)
-	}
 }
 
 func (self *BlockServer) handleRequest(conn net.Conn) {
@@ -141,5 +144,13 @@ func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 		dataSent += int64(len(buf))
 		// ignore the error
 		conn.Write(buf)
+	}
+}
+
+func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
+	return &BlockServer{
+		conf:         conf,
+		blockSize:    conf.BlockSize,
+		transactions: make(map[string]chan []byte),
 	}
 }

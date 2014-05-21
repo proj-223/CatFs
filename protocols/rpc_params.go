@@ -45,6 +45,10 @@ const (
 	OPEN_MODE_WRITE
 )
 
+type GetBlocksLocationParam struct {
+	blocks []*CatBlock
+}
+
 type OpenFileParam struct {
 	// The abs path of the file
 	Path string
