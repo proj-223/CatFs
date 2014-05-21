@@ -1,15 +1,41 @@
 package master
 
 import (
+	"strings"
 	proc "github.com/proj-223/CatFs/protocols"
 )
 
 type Master struct {
+	root GFSFile
+	//mapping from blockID to block location
+	blockmap map[uint64]uint64 
 }
 
 // Create a file in a given path
 func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileResponse) error {
-	panic("to do")
+	//panic("to do")
+	path := param.Path
+	isDir := param.IsDirectory
+	//omit the first one
+	elements := strings.Split(path,"/")[1:]
+	leaf := self.root
+	i := 0
+	//only the last element is not a directory
+	for i<=len(elements)-1 && leaf.Contains(elements[i]) {
+		leaf = leaf.GetFile(elements[i])
+		i++
+	}
+
+	if(i==len(elements)){
+		if(isDir == leaf.isDirectory()) {
+			return nil
+		} else {
+			return &FileAlreadyExistError{}
+		}
+	}
+
+	leaf.AddFile(elements[i:len(elements)], isDir)
+	return nil
 }
 
 // Open a file to add block

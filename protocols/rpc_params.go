@@ -36,6 +36,8 @@ type BlockQueryParam struct {
 type CreateFileParam struct {
 	// The abs path of the file
 	Path string
+	// whether it is a directory
+	IsDirectory bool
 	// Ower of the file
 	Ower *string
 }
