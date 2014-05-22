@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"github.com/proj-223/CatFs/config"
-	"github.com/proj-223/CatFs/protocols"
 	"log"
 	"net"
 )
@@ -14,7 +13,8 @@ const (
 
 const (
 	BLOCK_BUFFER_SIZE  = 1 << 10
-	BLOCK_REQUEST_SIZE = 37
+	BLOCK_REQUEST_SIZE = 100
+	BLOCK_SEND_SIZE    = 1 << 9
 )
 
 const (
@@ -22,8 +22,13 @@ const (
 	REQUEST_GET_BLOCK
 )
 
+const (
+	BLOCK_FINISHED = iota
+	BLOCK_NOT_FINISHED
+)
+
 var (
-	RESPONSE_PELEASE_SEND = []byte("please send")
+	RESPONSE_PELEASE_SEND = []byte("ack")
 
 	ErrShutdown = errors.New("Operation Error")
 )
@@ -33,11 +38,9 @@ type BlockRequest struct {
 	RequestType byte   // It is an int
 }
 
-func BlockRequestFromByte(b []byte) *BlockRequest {
-	return &BlockRequest{
-		TransID:     string(b[:BLOCK_REQUEST_SIZE-1]),
-		RequestType: b[BLOCK_REQUEST_SIZE-1],
-	}
+type BlockStruct struct {
+	Finished bool
+	Data     []byte
 }
 
 type BlockServer struct {
@@ -57,7 +60,7 @@ func (self *BlockServer) Serve() error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("Error accept: %s", err.Error())
+			log.Printf("Error accept: %s\n", err.Error())
 			continue
 		}
 		go self.handleRequest(conn)
@@ -67,15 +70,23 @@ func (self *BlockServer) Serve() error {
 
 // DataServer will receive an transaction request and it will call this
 // method to add an entry for the transaction
-func (self *BlockServer) StartTransaction(lease *protocols.CatLease, c chan []byte) {
-
+func (self *BlockServer) StartTransaction(leaseID string, c chan []byte) {
+	self.transactions[leaseID] = c
 }
 
 // Stop one transaction, it may because the transaction terminated or
 // the lease is out of date
-func (self *BlockServer) StopTransaction(lease *protocols.CatLease) {
-	// delete the transaction from map
-	delete(self.transactions, lease.ID)
+func (self *BlockServer) StopTransaction(leaseID string) {
+	// recover all the errors it will encounter
+	defer DummyRecover()
+
+	// if the lease is in the transation map
+	if c, ok := self.transactions[leaseID]; ok {
+		// close the channel
+		close(c)
+		// delete the transaction from map
+		delete(self.transactions, leaseID)
+	}
 }
 
 func (self *BlockServer) handleRequest(conn net.Conn) {
@@ -83,18 +94,17 @@ func (self *BlockServer) handleRequest(conn net.Conn) {
 	n, err := conn.Read(requestBuf)
 	if err != nil {
 		// Log the error and return
-		log.Printf("Error read: %s", err.Error())
-		conn.Close()
-		return
-	}
-	// n should be BLOCK_REQUEST_SIZE
-	if n != BLOCK_REQUEST_SIZE {
-		log.Printf("Error request size %d != %d", n, BLOCK_REQUEST_SIZE)
-		conn.Close()
+		log.Printf("Error read: %s\n", err.Error())
 		return
 	}
 
-	req := BlockRequestFromByte(requestBuf)
+	var req BlockRequest
+	err = FromBytes(requestBuf[:n], &req)
+	if err != nil {
+		// Log the error and return
+		log.Println(err.Error())
+		return
+	}
 	switch int(req.RequestType) {
 	case REQUEST_SEND_BLOCK:
 		// if the request is to send a block to server
@@ -106,45 +116,48 @@ func (self *BlockServer) handleRequest(conn net.Conn) {
 }
 
 func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
-	_, err := conn.Write(RESPONSE_PELEASE_SEND)
-	if err != nil {
-		// Log the error the return
-		log.Printf("Error read: %s", err.Error())
-		return
-	}
+	// anyway, stop transaction
+	defer self.StopTransaction(transID)
+	// anyway, close the connection
+	defer conn.Close()
 
-	var dataReceived int64 = 0
 	buf := make([]byte, BLOCK_BUFFER_SIZE)
-	for dataReceived < self.blockSize {
+	for {
+		// ack
+		_, err := conn.Write(RESPONSE_PELEASE_SEND)
+		if err != nil {
+			// Log the error the return
+			log.Printf("Error write: %s\n", err.Error())
+			return
+		}
+
 		n, err := conn.Read(buf)
 		if err != nil {
 			// Log the error
-			log.Printf("Error read: %s", err.Error())
+			log.Printf("Error read: %s\n", err.Error())
 			// tell the channel there is error
 			// send nil to channel
 			self.transactions[transID] <- nil
 			return
 		}
+		var bs BlockStruct
+		err = FromBytes(buf[:n], &bs)
+		if err != nil {
+			// Log the error the return
+			log.Println(err.Error())
+			return
+		}
+		if bs.Finished {
+			break
+		}
 		// TODO Question potential racing condition
 		// Make the chan limited to 1
-		self.transactions[transID] <- buf
-		dataReceived += int64(n)
+		self.transactions[transID] <- bs.Data
 	}
 }
 
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
-	var dataSent int64 = 0
-	// TODO Question potential racing condition
-	// Make the chan limited to 1
-	for dataSent < self.blockSize {
-		buf, ok := <-self.transactions[transID]
-		if !ok {
-			break
-		}
-		dataSent += int64(len(buf))
-		// ignore the error
-		conn.Write(buf)
-	}
+	// TODO
 }
 
 func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
@@ -153,4 +166,72 @@ func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
 		blockSize:    conf.BlockSize,
 		transactions: make(map[string]chan []byte),
 	}
+}
+
+type BlockClient struct {
+	blockSize int64
+	addr      string
+}
+
+func NewBlockClient(host string, conf *config.BlockServerConfig) *BlockClient {
+	return &BlockClient{
+		blockSize: conf.BlockSize,
+		addr:      host + ":" + conf.Port,
+	}
+}
+
+func (self *BlockClient) SendBlock(c chan []byte, transID string) {
+	conn, err := net.Dial("tcp", self.addr)
+	if err != nil {
+		// if there is an error, close channel
+		log.Println(err.Error())
+		close(c)
+		return
+	}
+
+	requestBytes := ToBytes(&BlockRequest{
+		TransID:     transID,
+		RequestType: REQUEST_SEND_BLOCK,
+	})
+
+	_, err = conn.Write(requestBytes)
+	if err != nil {
+		// if there is an error, close channel
+		log.Println(err.Error())
+		close(c)
+		return
+	}
+	buf := make([]byte, BLOCK_REQUEST_SIZE)
+	for {
+		// get the ack from server
+		_, err := conn.Read(buf)
+		if err != nil {
+			log.Printf("Error read: %s\n", err.Error())
+			close(c)
+			return
+		}
+		b, ok := <-c
+		if !ok {
+			// sender closed the channel
+			// it is done
+			buf := ToBytes(&BlockStruct{
+				Finished: true,
+			})
+			_, err = conn.Write(buf)
+			break
+		}
+		// write another
+		buf := ToBytes(&BlockStruct{
+			Finished: false,
+			Data:     b,
+		})
+		_, err = conn.Write(buf)
+		if err != nil {
+			// if there is an error, close channel
+			log.Println(err.Error())
+			close(c)
+			return
+		}
+	}
+	return
 }
