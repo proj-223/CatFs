@@ -1,9 +1,11 @@
 package master
+import "sync"
 
 type GFSFile struct {
      file_map map[string]GFSFile
      isDir bool
      blocklist []uint64
+     Lock sync.RWMutex
 }
 
 func (self* GFSFile) Contains(filename string) bool {

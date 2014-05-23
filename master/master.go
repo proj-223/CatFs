@@ -8,7 +8,7 @@ import (
 type Master struct {
 	root GFSFile
 	//mapping from blockID to block location
-	blockmap map[uint64]uint64 
+	blockmap map[uint64]uint64	 
 }
 
 // Create a file in a given path
@@ -40,7 +40,20 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 
 // Open a file to add block
 func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileResponse) error {
-	panic("to do")
+	//First locate the GFSFile instance
+	file := self.root
+	elements := strings.Split(param.Path,"/")[1:] 
+	for i:=0; i<len(elements); i++ {
+		file = file.GetFile(elements[i])
+	}
+
+	//The try to acquire the lock for that file depending 
+	//on the read/write modes
+	if(param.Mode == 0){
+		file.Lock.RLock()
+	} else {
+		file.Lock.Lock()
+	}
 }
 
 // Drop a block
