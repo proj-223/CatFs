@@ -1,9 +1,13 @@
 package master
 
 import (
-	//"strings"
 	"hash/fnv"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
 )
 
 const REPLICA_COUNT = 3
@@ -18,6 +22,12 @@ type Master struct {
 	blockmap map[uint32]*Replica
 	dataserver_addr []string
 	livemap []bool	 
+	conf *config.MachineConfig
+}
+
+// Get location of the block of the specified file within the specified range
+func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationParam) error {
+	panic("to do")
 }
 
 func (self *Master) _get_replicas(path string, replica *Replica) (uint32, error) {
@@ -148,18 +158,18 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 }
 
 // List dir, why the return value is not a list?
-func (self *Master) Listdir(param *proc.ListDirParam, files *proc.CatFileStatus) error {
+func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListdirResponse) error {
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if(!ok) {
 		return &FileNotExistError{}
 	}
-	var file_status_list []*proc.CatFileStatus
+	//var file_status_list []*proc.CatFileStatus
 	for k,v := range file.File_map {
 		file_status := new(proc.CatFileStatus)
 		file_status.Filename = k
 		file_status.Length = v.Length
-		file_status_list = append(file_status_list, file_status) 
+		response.Files = append(response.Files, file_status) 
 	}
 	return nil
 }
@@ -198,7 +208,16 @@ func (self *Master) BlockReport(param *proc.BlockReportParam, rep *proc.BlockRep
 	panic("to do")
 }
 
-// Init the Master Server
-func (self *Master) Init() error {
-	panic("to do")
+// go routine to init the data rpc server
+func (self *Master) initRPCServer(done chan error) {
+	server := rpc.NewServer()
+	server.Register(proc.MasterProtocol(self))
+	l, err := net.Listen("tcp", self.conf.MasterAddr())
+	if err != nil {
+		done <- err
+		return
+	}
+	log.Printf(START_MSG, self.conf.MasterAddr())
+	err = http.Serve(l, server)
+	done <- err
 }
