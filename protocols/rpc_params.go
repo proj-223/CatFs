@@ -38,8 +38,6 @@ type BlockQueryParam struct {
 type CreateFileParam struct {
 	// The abs path of the file
 	Path string
-	// whether it is a directory
-	IsDirectory bool
 	// Ower of the file
 	Ower *string
 }
@@ -97,6 +95,8 @@ type RenameParam struct {
 	Des string
 	// User
 	User string
+	// whether it is directory
+	IsDirectory bool
 }
 
 type DeleteParam struct {
