@@ -126,8 +126,9 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 		// ack
 		_, err := conn.Write(RESPONSE_PELEASE_SEND)
 		if err != nil {
-			// Log the error the return
+			// Log the error and return
 			log.Printf("Error write: %s\n", err.Error())
+			self.transactions[transID] <- nil
 			return
 		}
 
@@ -145,6 +146,7 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 		if err != nil {
 			// Log the error the return
 			log.Println(err.Error())
+			self.transactions[transID] <- nil
 			return
 		}
 		if bs.Finished {
@@ -157,7 +159,37 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 }
 
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
-	// TODO
+	// anyway, stop transaction
+	defer self.StopTransaction(transID)
+	reqBuf := make([]byte, BLOCK_REQUEST_SIZE)
+	for {
+		data, ok := <-self.transactions[transID]
+		if !ok {
+			// finished
+			buf := ToBytes(&BlockStruct{
+				Finished: true,
+			})
+			conn.Write(buf)
+			return
+		}
+		// get the ack from client
+		_, err := conn.Read(reqBuf)
+		if err != nil {
+			log.Printf("Error read: %s\n", err.Error())
+			return
+		}
+		buf := ToBytes(&BlockStruct{
+			Finished: false,
+			Data:     data,
+		})
+		// write to client
+		_, err = conn.Write(buf)
+		if err != nil {
+			// if there is an error, close channel
+			log.Println(err.Error())
+			return
+		}
+	}
 }
 
 func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
@@ -234,4 +266,56 @@ func (self *BlockClient) SendBlock(c chan []byte, transID string) {
 		}
 	}
 	return
+}
+
+func (self *BlockClient) GetBlock(c chan []byte, transID string) {
+	// any way, close the chanel
+	defer close(c)
+	conn, err := net.Dial("tcp", self.addr)
+	// any way, close the conn
+	defer conn.Close()
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	requestBytes := ToBytes(&BlockRequest{
+		TransID:     transID,
+		RequestType: REQUEST_GET_BLOCK,
+	})
+	_, err = conn.Write(requestBytes)
+
+	buf := make([]byte, BLOCK_BUFFER_SIZE)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			// Log the error
+			log.Printf("Error read: %s\n", err.Error())
+			// send nil to channel
+			c <- nil
+			return
+		}
+		var bs BlockStruct
+		err = FromBytes(buf[:n], &bs)
+		if err != nil {
+			// Log the error the return
+			log.Println(err.Error())
+			c <- nil
+			return
+		}
+		if bs.Finished {
+			break
+		}
+		// TODO Question potential racing condition
+		// Make the chan limited to 1
+		c <- bs.Data
+		// ack
+		_, err = conn.Write(RESPONSE_PELEASE_SEND)
+		if err != nil {
+			// Log the error and return
+			log.Printf("Error write: %s\n", err.Error())
+			c <- nil
+			return
+		}
+	}
 }
