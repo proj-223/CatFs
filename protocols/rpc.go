@@ -53,7 +53,7 @@ type ClientMaster interface {
 	Mkdirs(param *MkdirParam, succ *bool) error
 
 	// List dir
-	Listdir(param *ListDirParam, files *CatFileStatus) error
+	Listdir(param *ListDirParam, response *ListdirResponse) error
 
 	// Renew a lease
 	RenewLease(oldLease *CatFileLease, newLease *CatFileLease) error

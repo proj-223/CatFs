@@ -103,7 +103,7 @@ func (self *MasterRPCClient) Mkdirs(param *MkdirParam, succ *bool) error {
 }
 
 // List dir
-func (self *MasterRPCClient) Listdir(param *ListDirParam, files *CatFileStatus) error {
+func (self *MasterRPCClient) Listdir(param *ListDirParam, files *ListdirResponse) error {
 	return self.Call("Listdir", param, files)
 }
 

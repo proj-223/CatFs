@@ -120,6 +120,10 @@ type ListDirParam struct {
 	User string
 }
 
+type ListdirResponse struct {
+	files []*CatFileStatus
+}
+
 /* DataMaster Param */
 
 type RegisterDataParam struct {

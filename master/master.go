@@ -60,7 +60,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 }
 
 // List dir
-func (self *Master) Listdir(param *proc.ListDirParam, files *proc.CatFileStatus) error {
+func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListdirResponse) error {
 	panic("to do")
 }
 
