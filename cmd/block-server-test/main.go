@@ -11,13 +11,18 @@ func main() {
 	c := make(chan []byte)
 	b.StartTransaction(id, c)
 	go func() {
-		for {
-			b, ok := <-c
-			if !ok {
-				break
-			}
-			println(string(b))
-		}
+		c <- []byte("fuck fuck fuck fuck fuck fuck")
 	}()
+	/*
+		go func() {
+			for {
+				b, ok := <-c
+				if !ok {
+					break
+				}
+				println(string(b))
+			}
+		}()
+	*/
 	b.Serve()
 }

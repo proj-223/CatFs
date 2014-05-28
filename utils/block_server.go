@@ -172,21 +172,21 @@ func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 			conn.Write(buf)
 			return
 		}
-		// get the ack from client
-		_, err := conn.Read(reqBuf)
-		if err != nil {
-			log.Printf("Error read: %s\n", err.Error())
-			return
-		}
 		buf := ToBytes(&BlockStruct{
 			Finished: false,
 			Data:     data,
 		})
 		// write to client
-		_, err = conn.Write(buf)
+		_, err := conn.Write(buf)
 		if err != nil {
 			// if there is an error, close channel
 			log.Println(err.Error())
+			return
+		}
+		// get the ack from client
+		_, err = conn.Read(reqBuf)
+		if err != nil {
+			log.Printf("Error read: %s\n", err.Error())
 			return
 		}
 	}
