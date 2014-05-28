@@ -20,11 +20,12 @@ type DataServerConfig struct {
 }
 
 type MachineConfig struct {
-	Master      *MasterConfig
-	DataServers []*DataServerConfig
+	Master          *MasterConfig
+	DataServers     []*DataServerConfig
+	BlockServerConf *BlockServerConfig
 }
 
-func (self *MachineConfig) MaterAddr() string {
+func (self *MachineConfig) MasterAddr() string {
 	return fmt.Sprintf("%s:%s", self.Master.Host, self.Master.Port)
 }
 
@@ -50,8 +51,13 @@ var (
 		Host: DefaultHost,
 		Port: "10000",
 	}
+	DefaultBlockServerConfig = &BlockServerConfig{
+		Port:      "20000",
+		BlockSize: 1 << 26,
+	}
 	DefaultMachineConfig = &MachineConfig{
-		Master: DefaultMasterConfig,
+		Master:          DefaultMasterConfig,
+		BlockServerConf: DefaultBlockServerConfig,
 		DataServers: []*DataServerConfig{
 			DefaultDataServerConfig("10001"),
 			DefaultDataServerConfig("10002"),

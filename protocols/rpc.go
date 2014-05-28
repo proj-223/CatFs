@@ -23,7 +23,7 @@ type ClientData interface {
 type ClientMaster interface {
 
 	// Get location of the block of the specified file within the specified range
-	GetBlockLocation(query *BlockQueryParam, result []*CatBlock) error
+	GetBlockLocation(query *BlockQueryParam, blocks *GetBlocksLocationParam) error
 
 	// Create a file in a given path
 	Create(param *CreateFileParam, response *OpenFileResponse) error
@@ -53,7 +53,7 @@ type ClientMaster interface {
 	Mkdirs(param *MkdirParam, succ *bool) error
 
 	// List dir
-	Listdir(param *ListDirParam, files *CatFileStatus) error
+	Listdir(param *ListDirParam, response *ListdirResponse) error
 
 	// Renew a lease
 	RenewLease(oldLease *CatFileLease, newLease *CatFileLease) error

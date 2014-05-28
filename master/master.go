@@ -1,14 +1,21 @@
 package master
 
 import (
-	"strings"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
 )
 
 type Master struct {
-	root GFSFile
-	//mapping from blockID to block location
-	blockmap map[uint64]uint64 
+	conf *config.MachineConfig
+}
+
+// Get location of the block of the specified file within the specified range
+func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationParam) error {
+	panic("to do")
 }
 
 // Create a file in a given path
@@ -75,7 +82,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 }
 
 // List dir
-func (self *Master) Listdir(param *proc.ListDirParam, files *proc.CatFileStatus) error {
+func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListdirResponse) error {
 	panic("to do")
 }
 
@@ -104,7 +111,16 @@ func (self *Master) BlockReport(param *proc.BlockReportParam, rep *proc.BlockRep
 	panic("to do")
 }
 
-// Init the Master Server
-func (self *Master) Init() error {
-	panic("to do")
+// go routine to init the data rpc server
+func (self *Master) initRPCServer(done chan error) {
+	server := rpc.NewServer()
+	server.Register(proc.MasterProtocol(self))
+	l, err := net.Listen("tcp", self.conf.MasterAddr())
+	if err != nil {
+		done <- err
+		return
+	}
+	log.Printf(START_MSG, self.conf.MasterAddr())
+	err = http.Serve(l, server)
+	done <- err
 }

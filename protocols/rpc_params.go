@@ -47,6 +47,10 @@ const (
 	OPEN_MODE_WRITE
 )
 
+type GetBlocksLocationParam struct {
+	blocks []*CatBlock
+}
+
 type OpenFileParam struct {
 	// The abs path of the file
 	Path string
@@ -116,6 +120,10 @@ type ListDirParam struct {
 	Path string
 	// User
 	User string
+}
+
+type ListdirResponse struct {
+	files []*CatFileStatus
 }
 
 /* DataMaster Param */

@@ -49,7 +49,7 @@ func (self *ClientPool) Close() {
 // init a new Client Pool
 func NewClientPool(conf *config.MachineConfig) *ClientPool {
 	cp := new(ClientPool)
-	cp.master = NewMasterClient(conf.MaterAddr())
+	cp.master = NewMasterClient(conf.MasterAddr())
 	addrs := conf.DataServerAddrs()
 	for _, addr := range addrs {
 		cp.dataServers = append(cp.dataServers, NewDataClient(addr))
