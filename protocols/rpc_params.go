@@ -121,7 +121,7 @@ type ListDirParam struct {
 }
 
 type ListdirResponse struct {
-	files []*CatFileStatus
+	Files []*CatFileStatus
 }
 
 /* DataMaster Param */
