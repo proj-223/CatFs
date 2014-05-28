@@ -24,6 +24,8 @@ type CatFileStatus struct {
 	MTime time.Time
 	// Time of last access
 	ATime time.Time
+	// Is Dir
+	IsDir bool
 	// Owner of the file
 	Owner string
 	// Group of the file
