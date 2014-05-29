@@ -3,7 +3,6 @@ package data
 import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"github.com/proj-223/CatFs/utils"
 )
 
 const (
@@ -41,7 +40,7 @@ func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
 		pool:        proc.NewClientPool(conf),
 		conf:        conf,
 		index:       index,
-		blockServer: utils.NewBlockServer(conf.BlockServerConf),
+		blockServer: proc.NewBlockServer(conf.BlockServerConf),
 	}
 	return ds
 }

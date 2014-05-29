@@ -2,7 +2,6 @@ package protocols
 
 import (
 	"github.com/proj-223/CatFs/config"
-	"github.com/proj-223/CatFs/utils"
 )
 
 var (
@@ -41,9 +40,9 @@ func (self *ClientPool) DataServer(index int) *DataRPCClient {
 }
 
 // Get new Block Client
-func (self *ClientPool) NewBlockClient(index int) *utils.BlockClient {
+func (self *ClientPool) NewBlockClient(index int) *BlockClient {
 	host := self.conf.DataServerHost(index)
-	client := utils.NewBlockClient(host, self.conf.BlockServerConf)
+	client := NewBlockClient(host, self.conf.BlockServerConf)
 	return client
 }
 

@@ -1,7 +1,6 @@
 package protocols
 
 import (
-	"github.com/proj-223/CatFs/utils"
 	"time"
 )
 
@@ -11,7 +10,7 @@ func (self BlockLocation) DataServer(pool *ClientPool) *DataRPCClient {
 	return pool.DataServer(int(self))
 }
 
-func (self BlockLocation) BlockClient(pool *ClientPool) *utils.BlockClient {
+func (self BlockLocation) BlockClient(pool *ClientPool) *BlockClient {
 	return pool.NewBlockClient(int(self))
 }
 

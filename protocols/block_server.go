@@ -1,4 +1,4 @@
-package utils
+package protocols
 
 import (
 	"errors"
@@ -43,8 +43,36 @@ type BlockStruct struct {
 	Data     []byte
 }
 
+type Transaction struct {
+	ID        string // lease id
+	receivers []chan<- []byte
+	provider  <-chan []byte
+	done      chan bool
+}
+
+func NewReadTransaction(leaseID string, done chan bool, receivers ...chan<- []byte) *Transaction {
+	var workReceivers []chan<- []byte
+	for _, receiver := range receivers {
+		if receiver != nil {
+			workReceivers = append(workReceivers, receiver)
+		}
+	}
+	return &Transaction{
+		ID:        leaseID,
+		receivers: workReceivers,
+		done:      done,
+	}
+}
+
+func NewProviderTransaction(leaseID string, provider chan []byte) *Transaction {
+	return &Transaction{
+		ID:       leaseID,
+		provider: provider,
+	}
+}
+
 type BlockServer struct {
-	transactions map[string]chan []byte
+	transactions map[string]*Transaction
 	blockSize    int64
 	conf         *config.BlockServerConfig
 }
@@ -68,24 +96,52 @@ func (self *BlockServer) Serve() error {
 	return ErrShutdown
 }
 
-// DataServer will receive an transaction request and it will call this
-// method to add an entry for the transaction
-func (self *BlockServer) StartTransaction(leaseID string, c chan []byte) {
-	self.transactions[leaseID] = c
+// Get transactions
+func (self *BlockServer) Transactions() map[string]*Transaction {
+	return self.transactions
 }
 
-// Stop one transaction, it may because the transaction terminated or
-// the lease is out of date
-func (self *BlockServer) StopTransaction(leaseID string) {
-	// recover all the errors it will encounter
-	defer DummyRecover()
+func (self *BlockServer) Transaction(transID string) *Transaction {
+	tran, ok := self.transactions[transID]
+	if !ok {
+		return nil
+	}
+	return tran
+}
 
+// DataServer will receive an transaction request and it will call this
+// method to add an entry for the transaction
+func (self *BlockServer) StartTransaction(tran *Transaction) {
+	self.transactions[tran.ID] = tran
+}
+
+// Stop one transaction, it may because the lease is out of date
+// or terminate by client
+func (self *BlockServer) StopTransaction(leaseID string) {
 	// if the lease is in the transation map
-	if c, ok := self.transactions[leaseID]; ok {
-		// close the channel
-		close(c)
+	if _, ok := self.transactions[leaseID]; ok {
 		// delete the transaction from map
 		delete(self.transactions, leaseID)
+	}
+}
+
+// Finish the transaction
+func (self *BlockServer) FinishTransaction(leaseID string) {
+	// if the lease is in the transation map
+	if tran, ok := self.transactions[leaseID]; ok {
+		go doneChan(self.transactions[leaseID].done)
+		// close the channel
+		for _, c := range tran.receivers {
+			go closeByteChan(c)
+		}
+		// delete the transaction from map
+		delete(self.transactions, leaseID)
+	}
+}
+
+func (self *BlockServer) redirect(leaseID string, b []byte) {
+	for _, c := range self.transactions[leaseID].receivers {
+		c <- b
 	}
 }
 
@@ -117,9 +173,10 @@ func (self *BlockServer) handleRequest(conn net.Conn) {
 
 func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 	// anyway, stop transaction
-	defer self.StopTransaction(transID)
+	defer self.FinishTransaction(transID)
 	// anyway, close the connection
 	defer conn.Close()
+	// make the transaction done
 
 	buf := make([]byte, BLOCK_BUFFER_SIZE)
 	for {
@@ -128,7 +185,7 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 		if err != nil {
 			// Log the error and return
 			log.Printf("Error write: %s\n", err.Error())
-			self.transactions[transID] <- nil
+			self.redirect(transID, nil)
 			return
 		}
 
@@ -138,7 +195,7 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 			log.Printf("Error read: %s\n", err.Error())
 			// tell the channel there is error
 			// send nil to channel
-			self.transactions[transID] <- nil
+			self.redirect(transID, nil)
 			return
 		}
 		var bs BlockStruct
@@ -146,24 +203,22 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 		if err != nil {
 			// Log the error the return
 			log.Println(err.Error())
-			self.transactions[transID] <- nil
+			self.redirect(transID, nil)
 			return
 		}
 		if bs.Finished {
 			break
 		}
-		// TODO Question potential racing condition
-		// Make the chan limited to 1
-		self.transactions[transID] <- bs.Data
+		self.redirect(transID, bs.Data)
 	}
 }
 
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 	// anyway, stop transaction
-	defer self.StopTransaction(transID)
+	defer self.FinishTransaction(transID)
 	reqBuf := make([]byte, BLOCK_REQUEST_SIZE)
 	for {
-		data, ok := <-self.transactions[transID]
+		data, ok := <-self.transactions[transID].provider
 		if !ok {
 			// finished
 			buf := ToBytes(&BlockStruct{
@@ -196,7 +251,7 @@ func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
 	return &BlockServer{
 		conf:         conf,
 		blockSize:    conf.BlockSize,
-		transactions: make(map[string]chan []byte),
+		transactions: make(map[string]*Transaction),
 	}
 }
 

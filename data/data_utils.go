@@ -1,7 +1,9 @@
 package data
 
 import (
+	"bufio"
 	proc "github.com/proj-223/CatFs/protocols"
+	"os"
 )
 
 func (self *DataServer) prepareNext(param *proc.PrepareBlockParam) (chan []byte, error) {
@@ -17,24 +19,35 @@ func (self *DataServer) prepareNext(param *proc.PrepareBlockParam) (chan []byte,
 	if err != nil {
 		return nil, err
 	}
-	// prepare direct block to next data server
+	// prepare deliverChan block to next data server
 	nextBlockClient := nextParam.BlockLocation().BlockClient(self.pool)
-	direct := make(chan []byte)
-	go nextBlockClient.SendBlock(direct, nextLease.ID)
-	return direct, nil
+	deliverChan := make(chan []byte)
+	go nextBlockClient.SendBlock(deliverChan, nextLease.ID)
+	return deliverChan, nil
 }
 
 // go routine to receive data
-func (self *DataServer) receiveBlockRoutine(receive, direct chan []byte, block *proc.CatBlock) {
+func (self *DataServer) writeBlockToDisk(data chan []byte, block *proc.CatBlock) {
+	// TODO get file name
+	filename := "/tmp/catfs-test/" + block.ID
+	fi, err := os.Open(filename)
+	if err != nil {
+		// IF error, TODO sth
+		return
+	}
+	defer fi.Close()
+	writer := bufio.NewWriter(fi)
 	for {
-		b, ok := <-receive
+		b, ok := <-data
 		if !ok {
-			close(direct)
+			// finish writing
+			writer.Flush()
 			break
 		}
-		if direct != nil {
-			direct <- b
+		if b == nil {
+			// TODO failed writing
+			break
 		}
-		// TODO write data to disk
+		writer.Write(b)
 	}
 }

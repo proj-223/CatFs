@@ -3,11 +3,14 @@ package data
 import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"github.com/proj-223/CatFs/utils"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
+)
+
+const (
+	DEFAULT_CHAN_SIZE = 10
 )
 
 type DataServer struct {
@@ -15,22 +18,22 @@ type DataServer struct {
 	conf *config.MachineConfig
 	// index of this data server
 	index       int
-	blockServer *utils.BlockServer
+	blockServer *proc.BlockServer
 }
 
 // Prepare send a block to datanode
 func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *proc.CatLease) error {
 	// send prepare to next data server
-	direct, err := self.prepareNext(param)
+	deliverChan, err := self.prepareNext(param)
 	if err != nil {
 		return err
 	}
-	receive := make(chan []byte)
+	writeDiskChan := make(chan []byte, DEFAULT_CHAN_SIZE)
+	done := make(chan bool)
 	lease = proc.NewCatLease()
+	trans := proc.NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
 	// init data receiver
-	self.blockServer.StartTransaction(lease.ID, receive)
-	// self write and redirect routine
-	go self.receiveBlockRoutine(receive, direct, param.Block)
+	self.blockServer.StartTransaction(trans)
 	return nil
 }
 
