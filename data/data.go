@@ -20,7 +20,18 @@ type DataServer struct {
 
 // Prepare send a block to datanode
 func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *proc.CatLease) error {
-	panic("to do")
+	// send prepare to next data server
+	direct, err := self.prepareNext(param)
+	if err != nil {
+		return err
+	}
+	receive := make(chan []byte)
+	lease = proc.NewCatLease()
+	// init data receiver
+	self.blockServer.StartTransaction(lease.ID, receive)
+	// self write and redirect routine
+	go self.receiveBlockRoutine(receive, direct, param.Block)
+	return nil
 }
 
 // Wait util blocks reach destination
