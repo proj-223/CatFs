@@ -3,6 +3,7 @@ package data
 import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/utils"
 	"log"
 	"net"
 	"net/http"
@@ -11,26 +12,65 @@ import (
 
 const (
 	DEFAULT_CHAN_SIZE = 10
+	DEFAULT_TIMEOUT   = 30
 )
 
+type PipelineParam struct {
+	lease    *proc.CatLease
+	location proc.BlockLocation
+}
+
+func (self *PipelineParam) HasInit() bool {
+	return self.lease.HasInit()
+}
+
+func (self *PipelineParam) NextSendingParam() *proc.SendingBlockParam {
+	return &proc.SendingBlockParam{
+		Lease: self.lease,
+	}
+}
+
+func NewPipelineParam(lease *proc.CatLease, param *proc.PrepareBlockParam) *PipelineParam {
+	p := &PipelineParam{
+		lease: lease,
+	}
+	if param != nil {
+		p.location = param.BlockLocation()
+	}
+	return p
+}
+
 type DataServer struct {
-	pool *proc.ClientPool
-	conf *config.MachineConfig
-	// index of this data server
-	index       int
+	pool        *proc.ClientPool
+	conf        *config.MachineConfig
+	index       int // index of this data server
 	blockServer *proc.BlockServer
+	pipelineMap map[string]*PipelineParam
 }
 
 // Prepare send a block to datanode
 func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *proc.CatLease) error {
-	// send prepare to next data server
-	deliverChan, err := self.prepareNext(param)
-	if err != nil {
-		return err
+	var nextLease proc.CatLease
+	var deliverChan chan []byte
+	nextParam := param.NextPipeParam()
+	if nextParam != nil {
+		// if there is another replica
+		nextDataServer := nextParam.BlockLocation().DataServer(self.pool)
+		// prepare next data server
+		err := nextDataServer.PrepareSendBlock(nextParam, &nextLease)
+		if err != nil {
+			return err
+		}
+		// prepare deliverChan block to next data server
+		nextBlockClient := nextParam.BlockLocation().BlockClient(self.pool)
+		deliverChan := make(chan []byte)
+		go nextBlockClient.SendBlock(deliverChan, nextLease.ID)
 	}
+
 	writeDiskChan := make(chan []byte, DEFAULT_CHAN_SIZE)
-	done := make(chan bool)
-	lease = proc.NewCatLease()
+	done := make(chan bool, 1)
+	lease.New()
+	self.pipelineMap[lease.ID] = NewPipelineParam(&nextLease, nextParam)
 	trans := proc.NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
 	// init data receiver
 	self.blockServer.StartTransaction(trans)
@@ -40,7 +80,31 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 // Wait util blocks reach destination
 // The block will be sent by a pipeline
 func (self *DataServer) SendingBlock(param *proc.SendingBlockParam, succ *bool) error {
-	panic("to do")
+	lease := param.Lease
+	// anyway clean the lease
+	defer self.cleanLease(lease)
+
+	next, ok := self.pipelineMap[lease.ID]
+	if !ok {
+		return ErrInvalidLease
+	}
+	if next.HasInit() {
+		nextParam := next.NextSendingParam()
+		nextDataServer := next.location.DataServer(self.pool)
+		err := nextDataServer.SendingBlock(nextParam, succ)
+		if err != nil || !*succ {
+			return err
+		}
+	}
+	trans := self.blockServer.Transaction(lease.ID)
+	timeout := utils.NewTimeout(DEFAULT_TIMEOUT)
+	select {
+	case <-trans.Done:
+		*succ = true
+	case <-timeout:
+		*succ = false
+	}
+	return nil
 }
 
 // Get the block from data server

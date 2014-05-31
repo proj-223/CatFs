@@ -6,26 +6,6 @@ import (
 	"os"
 )
 
-func (self *DataServer) prepareNext(param *proc.PrepareBlockParam) (chan []byte, error) {
-	nextParam := param.NextPipeParam()
-	if nextParam == nil {
-		// if there is no more replicas
-		return nil, nil
-	}
-	// prepare next data server
-	var nextLease proc.CatLease
-	nextDataServer := nextParam.BlockLocation().DataServer(self.pool)
-	err := nextDataServer.PrepareSendBlock(nextParam, &nextLease)
-	if err != nil {
-		return nil, err
-	}
-	// prepare deliverChan block to next data server
-	nextBlockClient := nextParam.BlockLocation().BlockClient(self.pool)
-	deliverChan := make(chan []byte)
-	go nextBlockClient.SendBlock(deliverChan, nextLease.ID)
-	return deliverChan, nil
-}
-
 // go routine to receive data
 func (self *DataServer) writeBlockToDisk(data chan []byte, block *proc.CatBlock) {
 	// TODO get file name
@@ -50,4 +30,11 @@ func (self *DataServer) writeBlockToDisk(data chan []byte, block *proc.CatBlock)
 		}
 		writer.Write(b)
 	}
+}
+
+func (self *DataServer) cleanLease(lease *proc.CatLease) {
+	if _, ok := self.pipelineMap[lease.ID]; ok {
+		delete(self.pipelineMap, lease.ID)
+	}
+	self.blockServer.StopTransaction(lease.ID)
 }

@@ -47,7 +47,7 @@ type Transaction struct {
 	ID        string // lease id
 	receivers []chan<- []byte
 	provider  <-chan []byte
-	done      chan bool
+	Done      chan bool
 }
 
 func NewReadTransaction(leaseID string, done chan bool, receivers ...chan<- []byte) *Transaction {
@@ -60,7 +60,7 @@ func NewReadTransaction(leaseID string, done chan bool, receivers ...chan<- []by
 	return &Transaction{
 		ID:        leaseID,
 		receivers: workReceivers,
-		done:      done,
+		Done:      done,
 	}
 }
 
@@ -129,7 +129,7 @@ func (self *BlockServer) StopTransaction(leaseID string) {
 func (self *BlockServer) FinishTransaction(leaseID string) {
 	// if the lease is in the transation map
 	if tran, ok := self.transactions[leaseID]; ok {
-		go doneChan(self.transactions[leaseID].done)
+		go doneChan(self.transactions[leaseID].Done)
 		// close the channel
 		for _, c := range tran.receivers {
 			go closeByteChan(c)
@@ -177,7 +177,6 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 	// anyway, close the connection
 	defer conn.Close()
 	// make the transaction done
-
 	buf := make([]byte, BLOCK_BUFFER_SIZE)
 	for {
 		// ack

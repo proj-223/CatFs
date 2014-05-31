@@ -34,13 +34,15 @@ type CatFileLease struct {
 	Expire time.Time
 }
 
-func NewCatLease() *CatLease {
-	return &CatLease{
-		Expire: time.Now().Add(LEASE_DURATION),
-		ID:     uuid.New(),
-	}
+func (self *CatLease) New() {
+	self.ID = uuid.New()
+	self.Renew()
 }
 
 func (self *CatLease) Renew() {
 	self.Expire.Add(LEASE_DURATION)
+}
+
+func (self *CatLease) HasInit() bool {
+	return len(self.ID) != 0
 }
