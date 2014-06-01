@@ -233,7 +233,7 @@ func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 		// write to client
 		_, err := conn.Write(buf)
 		if err != nil {
-			// if there is an error, close channel
+			// if there is an error
 			log.Println(err.Error())
 			return
 		}

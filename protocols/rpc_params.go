@@ -28,7 +28,6 @@ func (self *PrepareBlockParam) NextPipeParam() *PrepareBlockParam {
 type SendingBlockParam struct {
 	// Transaction id returned by prepare block
 	Lease *CatLease
-	Block *CatBlock
 }
 
 type GetBlockParam struct {

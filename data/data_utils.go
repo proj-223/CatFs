@@ -9,6 +9,7 @@ import (
 
 const (
 	DEFAULT_BLOCK_BUFFER = 1024
+	DEFAULT_FILE_PERM    = 0664
 )
 
 func (self *DataServer) blockFilename(block *proc.CatBlock) string {
@@ -19,10 +20,9 @@ func (self *DataServer) blockFilename(block *proc.CatBlock) string {
 // go routine to receive data
 func (self *DataServer) writeBlockToDisk(data <-chan []byte, block *proc.CatBlock) {
 	filename := self.blockFilename(block)
-	fi, err := os.Open(filename)
+	fi, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, DEFAULT_FILE_PERM)
 	if err != nil {
-		// IF error, TODO sth
-		return
+		panic(err)
 	}
 	defer fi.Close()
 	writer := bufio.NewWriter(fi)
@@ -59,9 +59,10 @@ func (self *DataServer) readBlockFromDisk(data chan<- []byte, block *proc.CatBlo
 			panic(err)
 		}
 		if n == 0 {
+			close(data)
 			break
 		}
-		data <- buf
+		data <- buf[:n]
 	}
 }
 

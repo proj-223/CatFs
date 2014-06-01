@@ -77,6 +77,7 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 	self.pipelineMap[lease.ID] = NewPipelineParam(&nextLease, nextParam)
 
 	trans := proc.NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
+	go self.writeBlockToDisk(writeDiskChan, param.Block)
 	// init data receiver
 	self.blockServer.StartTransaction(trans)
 	return nil
