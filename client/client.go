@@ -76,17 +76,7 @@ func (self *CatClient) Close() error {
 	panic("to do")
 }
 
-// Open a file with perm and flag
-func (self *CatClient) OpenFile(name string, flag int, perm os.FileMode) (file *CatFile, err error) {
-	panic("to do")
-}
-
 // Open a file for read
-func (self *CatClient) Open(name string) (file *CatFile, err error) {
-	return self.OpenFile(name, O_RDONLY, 0)
-}
-
-// Create and open a file for write
-func (self *CatClient) nCreate(name string) (file *CatFile, err error) {
-	return self.OpenFile(name, O_RDWR|O_CREATE|O_TRUNC, 0666)
+func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
+  panic("to do")
 }
