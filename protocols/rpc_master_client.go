@@ -57,7 +57,7 @@ func (self *MasterRPCClient) Call(method string, args interface{}, reply interfa
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *MasterRPCClient) GetBlockLocation(query *BlockQueryParam, blocks *GetBlocksLocationParam) error {
+func (self *MasterRPCClient) GetBlockLocation(query *BlockQueryParam, blocks *GetBlocksLocationResponse) error {
 	return self.Call("GetBlockLocation", query, blocks)
 }
 
