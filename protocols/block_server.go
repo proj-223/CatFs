@@ -64,7 +64,7 @@ func NewReadTransaction(leaseID string, done chan bool, receivers ...chan<- []by
 	}
 }
 
-func NewProviderTransaction(leaseID string, provider chan []byte) *Transaction {
+func NewProviderTransaction(leaseID string, provider <-chan []byte) *Transaction {
 	return &Transaction{
 		ID:       leaseID,
 		provider: provider,

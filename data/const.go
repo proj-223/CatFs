@@ -47,6 +47,7 @@ func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
 		index:       index,
 		blockServer: proc.NewBlockServer(conf.BlockServerConf),
 		pipelineMap: make(map[string]*PipelineParam),
+		leaseMap:    make(map[string]*proc.CatLease),
 	}
 	return ds
 }

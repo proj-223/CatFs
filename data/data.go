@@ -46,6 +46,7 @@ type DataServer struct {
 	index       int // index of this data server
 	blockServer *proc.BlockServer
 	pipelineMap map[string]*PipelineParam
+	leaseMap    map[string]*proc.CatLease
 }
 
 // Prepare send a block to datanode
@@ -69,8 +70,12 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 
 	writeDiskChan := make(chan []byte, DEFAULT_CHAN_SIZE)
 	done := make(chan bool, 1)
+
+	// init the lease
 	lease.New()
+	self.leaseMap[lease.ID] = lease
 	self.pipelineMap[lease.ID] = NewPipelineParam(&nextLease, nextParam)
+
 	trans := proc.NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
 	// init data receiver
 	self.blockServer.StartTransaction(trans)
@@ -110,7 +115,16 @@ func (self *DataServer) SendingBlock(param *proc.SendingBlockParam, succ *bool) 
 // Get the block from data server
 // Will start an tcp connect to request block
 func (self *DataServer) GetBlock(param *proc.GetBlockParam, lease *proc.CatLease) error {
-	panic("to do")
+	// init lease
+	lease.New()
+	self.leaseMap[lease.ID] = lease
+
+	block := param.Block
+	data := make(chan []byte)
+	go self.readBlockFromDisk(data, block)
+	trans := proc.NewProviderTransaction(lease.ID, data)
+	self.blockServer.StartTransaction(trans)
+	return nil
 }
 
 func (self *DataServer) addr() string {
