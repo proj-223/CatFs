@@ -4,13 +4,23 @@ import (
 	"time"
 )
 
+type BlockLocation int
+
+func (self BlockLocation) DataServer(pool *ClientPool) *DataRPCClient {
+	return pool.DataServer(int(self))
+}
+
+func (self BlockLocation) BlockClient(pool *ClientPool) *BlockClient {
+	return pool.NewBlockClient(int(self))
+}
+
 // The Information of a block
 type CatBlock struct {
 	// The Id of a block
 	ID string
 	// The location of data server (Indexes)
 	// The first one is the primary
-	Location []int
+	Locations []BlockLocation
 }
 
 type CatFileStatus struct {
@@ -33,29 +43,4 @@ type CatFileStatus struct {
 	// Permission of the file
 	// u:rwx g:rwx o:rwx
 	Mode int16
-}
-
-const (
-	// Read lock
-	LEASE_READ = iota
-	// Write lock
-	LEASE_WRITE
-)
-
-type CatLease struct {
-	// The id the the ease
-	// It works like a transaction ID
-	ID string
-	// Expire time of the lease
-	Expire time.Time
-}
-
-type CatFileLease struct {
-	// The id the the lease
-	// It works like a transaction ID
-	ID string
-	// Type of the lease
-	Type int
-	// Expire time of the lease
-	Expire time.Time
 }

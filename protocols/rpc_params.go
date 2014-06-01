@@ -5,13 +5,30 @@ package protocols
 type PrepareBlockParam struct {
 	// The block to send
 	Block *CatBlock
-	// The index of block
-	Index int
+}
+
+func (self *PrepareBlockParam) BlockLocation() BlockLocation {
+	return self.Block.Locations[0]
+}
+
+func (self *PrepareBlockParam) NextPipeParam() *PrepareBlockParam {
+	if len(self.Block.Locations) <= 1 {
+		// if there is no more blocks
+		return nil
+	}
+	param := &PrepareBlockParam{
+		Block: &CatBlock{
+			ID:        self.Block.ID,
+			Locations: self.Block.Locations[1:],
+		},
+	}
+	return param
 }
 
 type SendingBlockParam struct {
 	// Transaction id returned by prepare block
 	Lease *CatLease
+	Block *CatBlock
 }
 
 type GetBlockParam struct {
@@ -47,8 +64,8 @@ const (
 	OPEN_MODE_WRITE
 )
 
-type GetBlocksLocationParam struct {
-	blocks []*CatBlock
+type GetBlocksLocationResponse struct {
+	Blocks []*CatBlock
 }
 
 type OpenFileParam struct {

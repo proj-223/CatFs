@@ -34,6 +34,10 @@ func (self *MachineConfig) DataServerAddr(index int) string {
 		self.DataServers[index].Port)
 }
 
+func (self *MachineConfig) DataServerHost(index int) string {
+	return self.DataServers[index].Host
+}
+
 func (self *MachineConfig) DataServerAddrs() []string {
 	var addrs []string
 	for i := range self.DataServers {

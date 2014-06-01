@@ -23,6 +23,7 @@ func Close() {
 type ClientPool struct {
 	master      *MasterRPCClient
 	dataServers []*DataRPCClient
+	conf        *config.MachineConfig
 }
 
 // Get the Master Server Client
@@ -38,6 +39,13 @@ func (self *ClientPool) DataServer(index int) *DataRPCClient {
 	return self.dataServers[index]
 }
 
+// Get new Block Client
+func (self *ClientPool) NewBlockClient(index int) *BlockClient {
+	host := self.conf.DataServerHost(index)
+	client := NewBlockClient(host, self.conf.BlockServerConf)
+	return client
+}
+
 // Get the Data Server Client
 func (self *ClientPool) Close() {
 	self.master.CloseConn()
@@ -48,8 +56,10 @@ func (self *ClientPool) Close() {
 
 // init a new Client Pool
 func NewClientPool(conf *config.MachineConfig) *ClientPool {
-	cp := new(ClientPool)
-	cp.master = NewMasterClient(conf.MasterAddr())
+	cp := &ClientPool{
+		master: NewMasterClient(conf.MasterAddr()),
+		conf:   conf,
+	}
 	addrs := conf.DataServerAddrs()
 	for _, addr := range addrs {
 		cp.dataServers = append(cp.dataServers, NewDataClient(addr))

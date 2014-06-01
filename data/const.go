@@ -1,13 +1,17 @@
 package data
 
 import (
+	"errors"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"github.com/proj-223/CatFs/utils"
 )
 
 const (
 	RPC_START_MSG = "CatFS Data Server %d RPC are start: %s\n"
+)
+
+var (
+	ErrInvalidLease = errors.New("Invalid Lease")
 )
 
 var (
@@ -41,7 +45,9 @@ func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
 		pool:        proc.NewClientPool(conf),
 		conf:        conf,
 		index:       index,
-		blockServer: utils.NewBlockServer(conf.BlockServerConf),
+		blockServer: proc.NewBlockServer(conf.BlockServerConf),
+		pipelineMap: make(map[string]*PipelineParam),
+		leaseMap:    make(map[string]*proc.CatLease),
 	}
 	return ds
 }
