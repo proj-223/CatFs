@@ -78,5 +78,5 @@ func (self *CatClient) Close() error {
 
 // Open a file for read
 func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
-  panic("to do")
+	panic("to do")
 }
