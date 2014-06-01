@@ -1,18 +1,15 @@
 package master
 
 type FileAlreadyExistError struct {
-
 }
 
 type FileNotExistError struct {
-
 }
 
 type NotEnoughAliveServer struct {
-
 }
 
-func (e *FileAlreadyExistError) Error() string{
+func (e *FileAlreadyExistError) Error() string {
 	return "File already exists!"
 }
 
