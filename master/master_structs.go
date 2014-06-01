@@ -7,7 +7,7 @@ import (
 type GFSFile struct {
      File_map map[string]*GFSFile
      IsDir bool
-     Blocklist []uint32
+     Blocklist []string
      Lock sync.RWMutex
      Length int64
 }

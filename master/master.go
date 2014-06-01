@@ -8,9 +8,11 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	uuid "code.google.com/p/go-uuid/uuid"
 )
 
 const REPLICA_COUNT = 3
+const BLOCK_SIZE = 1024
 
 type Replica struct {
 	Replica_loc []int 
@@ -19,7 +21,7 @@ type Replica struct {
 type Master struct {
 	root GFSFile
 	//mapping from blockID to block location
-	blockmap map[uint32]*Replica
+	blockmap map[string]*proc.CatBlock
 	dataserver_addr []string
 	livemap []bool	 
 	conf *config.MachineConfig
@@ -27,26 +29,47 @@ type Master struct {
 
 // Get location of the block of the specified file within the specified range
 func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationParam) error {
-	panic("to do")
+	elements := PathToElements(query.Path)
+	file, ok := self.root.GetFile(elements)
+	if(!ok) {
+		return &FileNotExistError{}
+	}
+	start_idx := (int)(query.Offset/BLOCK_SIZE)
+	end_idx := (int)((query.Offset + query.Length)/BLOCK_SIZE)
+	block_count := len(file.Blocklist)
+	if(end_idx > block_count - 1) {
+		end_idx = block_count - 1
+	} 
+
+	blocks.Blocks = make([]*proc.CatBlock, 0)
+	for i := start_idx; i<=end_idx ;i++ {
+		ID := file.Blocklist[i]
+		blocks.Blocks = append(blocks.Blocks, self.blockmap[ID])
+	}
+
+	return nil
 }
 
-func (self *Master) _get_replicas(path string, replica *Replica) (uint32, error) {
+func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 	hash := fnv.New32a()
 	hash.Write([]byte(path))
 	hash_int := hash.Sum32()
 	i := 0
 	server_num := len(self.livemap)
-	for len(replica.Replica_loc) < REPLICA_COUNT {
+	replica.Location = make([]int, 0)
+	for len(replica.Location) < REPLICA_COUNT {
 		if i==len(self.livemap) {
-			return 0, &NotEnoughAliveServer{}
+			return &NotEnoughAliveServer{}
 		}
 		idx := (int(hash_int) + i) % server_num
 		if(self.livemap[idx]) {
-			replica.Replica_loc = append(replica.Replica_loc, idx)
+			replica.Location = append(replica.Location, idx)
 		}
 		i++
 	}
-	return hash_int, nil
+	
+	replica.ID = uuid.New()
+	return nil
 }
 
 // Create a file in a given path
@@ -86,17 +109,12 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 	if(!ok){
 		return &FileNotExistError{}
 	}
-	replica := Replica{Replica_loc: make([]int, 0)}
-	blockId, e := self._get_replicas(param.Path, &replica)
+	e := self._get_replicas(param.Path, block)
 	if(e!=nil) {
 		return e
 	}
-	file.Blocklist = append(file.Blocklist, blockId)
-	self.blockmap[blockId] = &replica
-
-	//why blockID is string?
-	//block
-	block.Location = replica.Replica_loc 
+	file.Blocklist = append(file.Blocklist, block.ID)
+	self.blockmap[block.ID] = block
 	return nil
 }
 
