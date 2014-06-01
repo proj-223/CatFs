@@ -62,8 +62,8 @@ const (
 	OPEN_MODE_WRITE
 )
 
-type GetBlocksLocationParam struct {
-	blocks []*CatBlock
+type GetBlocksLocationResponse struct {
+	Blocks []*CatBlock
 }
 
 type OpenFileParam struct {

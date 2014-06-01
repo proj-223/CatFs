@@ -14,7 +14,7 @@ type Master struct {
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationParam) error {
+func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
 	panic("to do")
 }
 
