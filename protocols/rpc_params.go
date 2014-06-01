@@ -36,6 +36,8 @@ type GetBlockParam struct {
 }
 
 /* Client Master Params */
+const READ_MODE int = 1
+const WRITE_MODE int = 2
 
 // Query for blocks of a specific file
 type BlockQueryParam struct {
@@ -113,6 +115,8 @@ type RenameParam struct {
 	Des string
 	// User
 	User string
+	// whether it is directory
+	IsDirectory bool
 }
 
 type DeleteParam struct {
