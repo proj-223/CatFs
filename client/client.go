@@ -2,20 +2,46 @@ package client
 
 import (
 	"github.com/proj-223/CatFs/config"
+	ms "github.com/proj-223/CatFs/master"
 	proc "github.com/proj-223/CatFs/protocols"
 	"os"
 )
 
+const (
+	OPEN_MODE_READ = iota
+	OPEN_MODE_WRITE
+)
+
 type CatClient struct {
-	pool *proc.ClientPool
-	conf *config.MachineConfig
+	pool   *proc.ClientPool
+	conf   *config.MachineConfig
+	curdir string // current working directory
+}
+
+// IsDir returns a boolean indicating whether a file
+// is a directory
+func (self *CatClient) IsDir(name string) (bool, error) {
+	filestatus, err := self.getFilestatus(name)
+	if err != nil {
+		return false, err
+	}
+	return filestatus.IsDir, nil
 }
 
 // Chdir changes the current working directory to the named directory. If there
 // is an error, it will be of type *PathError.
 // The default working dir is "/"
 func (self *CatClient) Chdir(dir string) error {
-	panic("to do")
+	abspath := Abs(self.curdir, dir)
+	isDir, err := self.IsDir(abspath)
+	if err != nil {
+		return err
+	}
+	if !isDir {
+		return ErrInvalidParam
+	}
+	self.curdir = abspath
+	return nil
 }
 
 // Chmod changes the mode of the named file to mode. If the file is a symbolic
@@ -29,20 +55,22 @@ func (self *CatClient) Chmod(name string, mode os.FileMode) error {
 
 // IsExist returns a boolean indicating whether a file
 // or directory already exists.
-func (self *CatClient) IsExist(name string) bool {
-	panic("to do")
-}
-
-// IsDir returns a boolean indicating whether a file
-// is a directory
-func (self *CatClient) IsDir(name string) bool {
-	panic("to do")
+func (self *CatClient) IsExist(name string) (bool, error) {
+	_, err := self.getFilestatus(name)
+	if err == nil {
+		return true, nil
+	}
+	if err == ms.ErrNoSuchFile {
+		return false, nil
+	}
+	return false, err
 }
 
 // Mkdir creates a new directory with the specified name and permission bits. If
 // there is an error, it will be of type *PathError.
 func (self *CatClient) Mkdir(name string, perm os.FileMode) error {
-	panic("to do")
+	// TODO
+	return self.MkdirAll(name, perm)
 }
 
 // MkdirAll creates a directory named path, along with any necessary parents, and
@@ -50,33 +78,72 @@ func (self *CatClient) Mkdir(name string, perm os.FileMode) error {
 // all directories that MkdirAll creates. If path is already a directory,
 // MkdirAll does nothing and returns nil.
 func (self *CatClient) MkdirAll(name string, perm os.FileMode) error {
-	panic("to do")
+	abspath := Abs(self.curdir, name)
+
+	param := &proc.MkdirParam{
+		Path: abspath,
+	}
+	master := self.pool.MasterServer()
+	var succ bool
+	err := master.Mkdirs(param, &succ)
+	return err
 }
 
 // Remove removes the named file or directory. If there is an error, it will be
 // of type *PathError.
 func (self *CatClient) Remove(name string) error {
-	panic("to do")
+	// abspath := Abs(self.curdir, name)
+	// TODO
+	// if it is dir
+	// if there is content in the dir
+	return nil
 }
 
 // RemoveAll removes path and any children it contains. It removes everything it
 // can but returns the first error it encounters. If the path does not exist,
 // RemoveAll returns nil (no error).
 func (self *CatClient) RemoveAll(path string) error {
-	panic("to do")
+	abspath := Abs(self.curdir, path)
+	master := self.pool.MasterServer()
+
+	param := &proc.DeleteParam{
+		Path: abspath,
+	}
+	var succ bool
+	err := master.Delete(param, &succ)
+	return err
 }
 
 // Rename renames a file.
 func (self *CatClient) Rename(oldname, newname string) error {
-	panic("to do")
+	param := &proc.RenameParam{
+		Src: Abs(self.curdir, oldname),
+		Des: Abs(self.curdir, newname),
+	}
+	master := self.pool.MasterServer()
+	var succ bool
+	err := master.Rename(param, &succ)
+	return err
 }
 
 // Close all connection
 func (self *CatClient) Close() error {
+	self.pool.Close()
+	return nil
+}
+
+func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
 	panic("to do")
 }
 
-// Open a file for read
-func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
-	panic("to do")
+func (self *CatClient) getFilestatus(name string) (*proc.CatFileStatus, error) {
+	abspath := Abs(self.curdir, name)
+	master := self.pool.MasterServer()
+
+	var filestatus proc.CatFileStatus
+	err := master.GetFileInfo(abspath, &filestatus)
+	if err != nil {
+		return nil, err
+	}
+	return &filestatus, nil
 }

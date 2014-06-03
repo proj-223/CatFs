@@ -27,13 +27,13 @@ func Chmod(name string, mode os.FileMode) error {
 
 // IsExist returns a boolean indicating whether a file
 // or directory already exists.
-func IsExist(name string) bool {
+func IsExist(name string) (bool, error) {
 	return DefaultCatClient.IsExist(name)
 }
 
 // IsDir returns a boolean indicating whether a file
 // is a directory
-func IsDir(name string) bool {
+func IsDir(name string) (bool, error) {
 	return DefaultCatClient.IsDir(name)
 }
 
