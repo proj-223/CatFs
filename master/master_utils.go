@@ -5,5 +5,9 @@ import (
 )
 
 func PathToElements(path string) []string {
-	return strings.Split(path, "/")[1:]
+	if path != "/" {
+		return strings.Split(path, "/")[1:]
+	} else {
+		return make([]string, 0)
+	}
 }
