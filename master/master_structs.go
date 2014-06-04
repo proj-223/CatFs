@@ -52,7 +52,7 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 	} else {
 		if ok {
 			//it means the file to create already exists
-			return &FileAlreadyExistError{}
+			return ErrFileAlreadyExist
 		} else {
 			return nil
 		}
