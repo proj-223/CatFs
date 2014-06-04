@@ -204,6 +204,7 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 		return e
 	}
 	file.Blocklist = append(file.Blocklist, block.ID)
+	file.Length = file.Length + BLOCK_SIZE
 	self.blockmap[block.ID] = block
 	return nil
 }
