@@ -34,20 +34,28 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 
 	//first check whether the first element in path is present
 	//if not present, then create one
+	//fmt.Println(relativepath)
+	//fmt.Println(self == nil)
+	//fmt.Println(self.File_map == nil)
+	//fmt.Println(relativepath[0])
 	firstchild, ok := self.File_map[relativepath[0]]
 	var directory *GFSFile
 	if !ok {
-		directory := new(GFSFile)
+		directory = new(GFSFile)
 		directory.File_map = make(map[string]*GFSFile)
 		directory.IsDir = isDir
 		directory.Blocklist = make([]string, 0)
 		directory.Lease_map = make(map[string]*proc.CatFileLease)
 		directory.Length = 0
 		self.File_map[relativepath[0]] = directory
+		//fmt.Println("directory null?", directory == nil)
 	} else {
+		//fmt.Println("directory null?", directory == nil)
 		directory = firstchild
 	}
+	//fmt.Println("directory null?", directory == nil)
 	if len(relativepath) > 1 {
+		//fmt.Println("directory null?", directory == nil)
 		return directory.AddFile(relativepath[1:], isDirectory)
 	} else {
 		if ok {

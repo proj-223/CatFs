@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
+	//"fmt"
 )
 
 const REPLICA_COUNT = 3
@@ -59,14 +60,19 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 	hash := fnv.New32a()
 	hash.Write([]byte(path))
 	hash_int := hash.Sum32()
+	//fmt.Println("hash_int: ", hash_int)
 	i := 0
 	server_num := len(self.livemap)
+	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.BlockLocation, 0)
 	for len(replica.Locations) < REPLICA_COUNT {
 		if i == len(self.livemap) {
 			return ErrNotEnoughAliveServer
 		}
 		idx := (proc.BlockLocation)((int(hash_int) + i) % server_num)
+		if(idx < 0) {
+			idx = idx + (proc.BlockLocation)(server_num)
+		}
 		if self.livemap[idx] {
 			replica.Locations = append(replica.Locations, idx)
 		}
@@ -117,7 +123,7 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 	}
 	self.lockmgr.ReleaseLock(param.Path)
 	fs_state := response.Filestatus
-	fs_state.Filename = param.Path
+	fs_state.Filename = elements[len(elements)-1]
 	fs_state.Length = 0
 	current_time := time.Now()
 	fs_state.CTime = current_time
@@ -274,10 +280,21 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 // List dir, why the return value is not a list?
 func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResponse) error {
 	elements := PathToElements(param.Path)
-	file, ok := self.root.GetFile(elements)
-	if !ok {
-		return ErrNoSuchFile
+	//fmt.Println(elements, len(elements))
+	var file *GFSFile
+	if(len(elements) > 0) {
+		var ok bool
+		file, ok = self.root.GetFile(elements)
+		if !ok {
+			return ErrNoSuchFile
+		}
+	} else {
+		//fmt.Println(elements)
+		file = &self.root
 	}
+
+	response.Files = make([]*proc.CatFileStatus, 0)
+	
 	//var file_status_list []*proc.CatFileStatus
 	for k, v := range file.File_map {
 		file_status := new(proc.CatFileStatus)
