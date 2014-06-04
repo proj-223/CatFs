@@ -147,16 +147,20 @@ type ListDirResponse struct {
 /* DataMaster Param */
 
 type RegisterDataParam struct {
+	Status *DataServerStatus
 }
 
 type HeartbeatParam struct {
+	Status *DataServerStatus
 }
 
 type HeartbeatResponse struct {
 }
 
+// TODO do we need it?
 type BlockReportParam struct {
 }
 
+// TODO do we need it?
 type BlockReportResponse struct {
 }

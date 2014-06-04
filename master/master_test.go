@@ -2,8 +2,8 @@ package master
 
 import (
 	"fmt"
-	"testing"
 	"sync"
+	"testing"
 	//"os"
 	"runtime/debug"
 	//"time"
@@ -37,21 +37,21 @@ func as(cond bool, t *testing.T) {
 
 func TestMaster(t *testing.T) {
 	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
-	IsDir:true,
-	Blocklist: make([]string, 0),
-	Lease_map: make(map[string]*proc.CatFileLease),
-	Length: 0}
+		IsDir:     true,
+		Blocklist: make([]string, 0),
+		Lease_map: make(map[string]*proc.CatFileLease),
+		Length:    0}
 
-	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)} 
+	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
 	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082"}
 	server_livemap := []bool{true, true, true}
-	master := &Master{root: *myroot, 
-			  blockmap: make(map[string]*proc.CatBlock),
-			  //mapping from LeaseID to CatFileLease and GFSFile
-			  master_lease_map: make(map[string]*FileLease),
-	          dataserver_addr: server_addr_list,
-	          livemap: server_livemap,
-			  lockmgr: *lockmanager}
+	master := &Master{root: *myroot,
+		blockmap: make(map[string]*proc.CatBlock),
+		//mapping from LeaseID to CatFileLease and GFSFile
+		master_lease_map: make(map[string]*FileLease),
+		dataserver_addr:  server_addr_list,
+		livemap:          server_livemap,
+		lockmgr:          *lockmanager}
 
 	custompath := "/helloworld.txt"
 	custompath2 := "/folder1/haohuan.bmp"
@@ -62,7 +62,7 @@ func TestMaster(t *testing.T) {
 	createPicFileparam2 := &proc.CreateFileParam{Path: custompath3}
 	createFileResponse := &proc.OpenFileResponse{Filestatus: &proc.CatFileStatus{}, Lease: &proc.CatFileLease{}}
 	master.Create(createFileparam, createFileResponse)
-	as(createFileResponse.Lease!=nil, t)
+	as(createFileResponse.Lease != nil, t)
 
 	master.Create(createPicFileparam, createFileResponse)
 	as(createFileResponse.Filestatus.Filename == "haohuan.bmp", t)
@@ -108,10 +108,6 @@ func TestMaster(t *testing.T) {
 	ne(e, t)
 	as(len(ListDirResponse.Files) == 2, t)
 	as(ListDirResponse.Files[0].Filename == "haohuan.bmp", t)
-	as(ListDirResponse.Files[1].Filename == "haohuan2.bmp", t)	
-
-
-
-
+	as(ListDirResponse.Files[1].Filename == "haohuan2.bmp", t)
 
 }

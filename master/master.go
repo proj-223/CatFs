@@ -70,7 +70,7 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 			return ErrNotEnoughAliveServer
 		}
 		idx := (proc.BlockLocation)((int(hash_int) + i) % server_num)
-		if(idx < 0) {
+		if idx < 0 {
 			idx = idx + (proc.BlockLocation)(server_num)
 		}
 		if self.livemap[idx] {
@@ -282,7 +282,7 @@ func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResp
 	elements := PathToElements(param.Path)
 	//fmt.Println(elements, len(elements))
 	var file *GFSFile
-	if(len(elements) > 0) {
+	if len(elements) > 0 {
 		var ok bool
 		file, ok = self.root.GetFile(elements)
 		if !ok {
@@ -294,7 +294,7 @@ func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResp
 	}
 
 	response.Files = make([]*proc.CatFileStatus, 0)
-	
+
 	//var file_status_list []*proc.CatFileStatus
 	for k, v := range file.File_map {
 		file_status := new(proc.CatFileStatus)

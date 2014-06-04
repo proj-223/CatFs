@@ -10,8 +10,8 @@ const (
 )
 
 var (
-	ErrNoSuchFile = errors.New("No such file")
-	ErrFileAlreadyExist = errors.New("The file already exists")
+	ErrNoSuchFile           = errors.New("No such file")
+	ErrFileAlreadyExist     = errors.New("The file already exists")
 	ErrNotEnoughAliveServer = errors.New("Not enough alive servers")
 )
 
