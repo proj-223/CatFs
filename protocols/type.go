@@ -44,3 +44,34 @@ type CatFileStatus struct {
 	// u:rwx g:rwx o:rwx
 	Mode int16
 }
+
+type ServerLocation int
+
+type DataServerStatus struct {
+	Location     ServerLocation
+	AvaiableSize int64
+	DataSize     int64
+	TotalSize    int64
+	Errors       []string
+	BlockReports map[string]*DataBlockReport
+}
+
+type BlockStatus int
+
+const (
+	BLOCK_OK BlockStatus = iota
+	BLOCK_Err
+)
+
+type DataBlockReport struct {
+	ID     string
+	Status BlockStatus
+}
+
+type MasterCommandType int
+
+type MasterCommand struct {
+	Command  MasterCommandType
+	Machines []ServerLocation
+	Blocks   []string
+}
