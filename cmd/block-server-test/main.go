@@ -2,15 +2,15 @@ package main
 
 import (
 	"github.com/proj-223/CatFs/config"
-	"github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/data"
 )
 
 func main() {
 	id := "AA33016C-B0C8-48E8-8238-5E06B9EB27D8"
-	b := protocols.NewBlockServer(config.DefaultBlockServerConfig)
+	b := data.NewBlockServer(config.DefaultBlockServerConfig)
 	c := make(chan []byte)
 	done := make(chan bool)
-	trans := protocols.NewReadTransaction(id, done, c)
+	trans := data.NewReadTransaction(id, done, c)
 	b.StartTransaction(trans)
 	/*
 		go func() {

@@ -1,7 +1,8 @@
-package protocols
+package pool
 
 import (
 	"fmt"
+	proc "github.com/proj-223/CatFs/protocols"
 	"net/rpc"
 	"sync"
 )
@@ -57,77 +58,77 @@ func (self *MasterRPCClient) Call(method string, args interface{}, reply interfa
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *MasterRPCClient) GetBlockLocation(query *BlockQueryParam, blocks *GetBlocksLocationResponse) error {
+func (self *MasterRPCClient) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
 	return self.Call("GetBlockLocation", query, blocks)
 }
 
 // Create a file in a given path
-func (self *MasterRPCClient) Create(param *CreateFileParam, response *OpenFileResponse) error {
-	return self.Call("Create", param, response)
+func (self *MasterRPCClient) Create(param *proc.CreateFileParam, rep *proc.OpenFileResponse) error {
+	return self.Call("Create", param, rep)
 }
 
 // Open a file to add block
-func (self *MasterRPCClient) Open(param *OpenFileParam, response *OpenFileResponse) error {
-	return self.Call("Open", param, response)
+func (self *MasterRPCClient) Open(param *proc.OpenFileParam, rep *proc.OpenFileResponse) error {
+	return self.Call("Open", param, rep)
 }
 
 // Drop a block
-func (self *MasterRPCClient) AbandonBlock(param *AbandonBlockParam, succ *bool) error {
+func (self *MasterRPCClient) AbandonBlock(param *proc.AbandonBlockParam, succ *bool) error {
 	return self.Call("AbandonBlock", param, succ)
 }
 
 // Add a block to a specific path (file)
-func (self *MasterRPCClient) AddBlock(param *AddBlockParam, block *CatBlock) error {
+func (self *MasterRPCClient) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) error {
 	return self.Call("AddBlock", param, block)
 }
 
 // Complete an operation,
 // delete the lease (lock)
-func (self *MasterRPCClient) Close(param *CloseParam, succ *bool) error {
+func (self *MasterRPCClient) Close(param *proc.CloseParam, succ *bool) error {
 	return self.Call("Close", param, succ)
 }
 
 // Rename
-func (self *MasterRPCClient) Rename(param *RenameParam, succ *bool) error {
+func (self *MasterRPCClient) Rename(param *proc.RenameParam, succ *bool) error {
 	return self.Call("Rename", param, succ)
 }
 
 // Delete a file
-func (self *MasterRPCClient) Delete(param *DeleteParam, succ *bool) error {
+func (self *MasterRPCClient) Delete(param *proc.DeleteParam, succ *bool) error {
 	return self.Call("Delete", param, succ)
 }
 
 // Create a dir
-func (self *MasterRPCClient) Mkdirs(param *MkdirParam, succ *bool) error {
+func (self *MasterRPCClient) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 	return self.Call("Mkdirs", param, succ)
 }
 
 // List dir
-func (self *MasterRPCClient) Listdir(param *ListDirParam, files *ListDirResponse) error {
+func (self *MasterRPCClient) Listdir(param *proc.ListDirParam, files *proc.ListDirResponse) error {
 	return self.Call("Listdir", param, files)
 }
 
 // Renew a lease
-func (self *MasterRPCClient) RenewLease(oldLease *CatFileLease, newLease *CatFileLease) error {
+func (self *MasterRPCClient) RenewLease(oldLease *proc.CatFileLease, newLease *proc.CatFileLease) error {
 	return self.Call("RenewLease", oldLease, newLease)
 }
 
 // File info
-func (self *MasterRPCClient) GetFileInfo(path string, filestatus *CatFileStatus) error {
+func (self *MasterRPCClient) GetFileInfo(path string, filestatus *proc.CatFileStatus) error {
 	return self.Call("GetFileInfo", path, filestatus)
 }
 
 // Register a data server
-func (self *MasterRPCClient) RegisterDataServer(param *RegisterDataParam, succ *bool) error {
+func (self *MasterRPCClient) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
 	return self.Call("RegisterDataServer", param, succ)
 }
 
 // Send heartbeat to master
-func (self *MasterRPCClient) SendHeartbeat(param *HeartbeatParam, rep *HeartbeatResponse) error {
+func (self *MasterRPCClient) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
 	return self.Call("SendHeartbeat", param, rep)
 }
 
 // Send blockreport to master
-func (self *MasterRPCClient) BlockReport(param *BlockReportParam, rep *BlockReportResponse) error {
+func (self *MasterRPCClient) BlockReport(param *proc.BlockReportParam, rep *proc.BlockReportResponse) error {
 	return self.Call("BlockReport", param, rep)
 }

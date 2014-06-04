@@ -4,6 +4,7 @@ import (
 	"github.com/proj-223/CatFs/config"
 	ms "github.com/proj-223/CatFs/master"
 	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
 	"os"
 )
 
@@ -13,7 +14,7 @@ const (
 )
 
 type CatClient struct {
-	pool   *proc.ClientPool
+	pool   *pool.ClientPool
 	conf   *config.MachineConfig
 	curdir string // current working directory
 }

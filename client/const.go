@@ -3,7 +3,7 @@ package client
 import (
 	"errors"
 	"github.com/proj-223/CatFs/config"
-	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
 )
 
 var (
@@ -13,8 +13,8 @@ var (
 
 func NewCatClient(conf *config.MachineConfig) *CatClient {
 	return &CatClient{
-		pool: proc.NewClientPool(conf),
-		conf: conf,
-    curdir: "/",
+		pool:   pool.NewClientPool(conf),
+		conf:   conf,
+		curdir: "/",
 	}
 }

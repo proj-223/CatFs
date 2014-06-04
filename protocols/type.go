@@ -6,14 +6,6 @@ import (
 
 type BlockLocation int
 
-func (self BlockLocation) DataServer(pool *ClientPool) *DataRPCClient {
-	return pool.DataServer(int(self))
-}
-
-func (self BlockLocation) BlockClient(pool *ClientPool) *BlockClient {
-	return pool.NewBlockClient(int(self))
-}
-
 // The Information of a block
 type CatBlock struct {
 	// The Id of a block

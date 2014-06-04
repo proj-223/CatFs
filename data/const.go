@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
 )
 
 const (
@@ -42,10 +43,10 @@ func ServeDataServer(data *DataServer) error {
 // Create a new Master Server
 func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
 	ds := &DataServer{
-		pool:        proc.NewClientPool(conf),
+		pool:        pool.NewClientPool(conf),
 		conf:        conf,
 		index:       index,
-		blockServer: proc.NewBlockServer(conf.BlockServerConf),
+		blockServer: NewBlockServer(conf.BlockServerConf),
 		pipelineMap: make(map[string]*PipelineParam),
 		leaseMap:    make(map[string]*proc.CatLease),
 	}

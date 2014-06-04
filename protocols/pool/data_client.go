@@ -1,7 +1,8 @@
-package protocols
+package pool
 
 import (
 	"fmt"
+	proc "github.com/proj-223/CatFs/protocols"
 	"net/rpc"
 	"sync"
 )
@@ -57,18 +58,18 @@ func (self *DataRPCClient) Call(method string, args interface{}, reply interface
 }
 
 // Prepare send a block to datanode
-func (self *DataRPCClient) PrepareSendBlock(param *PrepareBlockParam, lease *CatLease) error {
+func (self *DataRPCClient) PrepareSendBlock(param *proc.PrepareBlockParam, lease *proc.CatLease) error {
 	return self.Call("PrepareSendBlock", param, lease)
 }
 
 // Wait util blocks reach destination
 // The block will be sent by a pipeline
-func (self *DataRPCClient) SendingBlock(param *SendingBlockParam, succ *bool) error {
+func (self *DataRPCClient) SendingBlock(param *proc.SendingBlockParam, succ *bool) error {
 	return self.Call("SendingBlock", param, succ)
 }
 
 // Get the block from data server
 // Will start an tcp connect to request block
-func (self *DataRPCClient) GetBlock(param *GetBlockParam, lease *CatLease) error {
+func (self *DataRPCClient) GetBlock(param *proc.GetBlockParam, lease *proc.CatLease) error {
 	return self.Call("GetBlock", param, lease)
 }

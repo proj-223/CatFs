@@ -3,6 +3,7 @@ package data
 import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
 	"github.com/proj-223/CatFs/utils"
 	"log"
 	"net"
@@ -41,10 +42,10 @@ func NewPipelineParam(lease *proc.CatLease, param *proc.PrepareBlockParam) *Pipe
 }
 
 type DataServer struct {
-	pool        *proc.ClientPool
+	pool        *pool.ClientPool
 	conf        *config.MachineConfig
 	index       int // index of this data server
-	blockServer *proc.BlockServer
+	blockServer *BlockServer
 	pipelineMap map[string]*PipelineParam
 	leaseMap    map[string]*proc.CatLease
 }
@@ -56,14 +57,15 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 	nextParam := param.NextPipeParam()
 	if nextParam != nil {
 		// if there is another replica
-		nextDataServer := nextParam.BlockLocation().DataServer(self.pool)
+		location := nextParam.BlockLocation()
+		nextDataServer := self.pool.DataServer(location)
 		// prepare next data server
 		err := nextDataServer.PrepareSendBlock(nextParam, &nextLease)
 		if err != nil {
 			return err
 		}
 		// prepare deliverChan block to next data server
-		nextBlockClient := nextParam.BlockLocation().BlockClient(self.pool)
+		nextBlockClient := self.pool.NewBlockClient(location)
 		deliverChan := make(chan []byte)
 		go nextBlockClient.SendBlock(deliverChan, nextLease.ID)
 	}
@@ -76,7 +78,7 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 	self.leaseMap[lease.ID] = lease
 	self.pipelineMap[lease.ID] = NewPipelineParam(&nextLease, nextParam)
 
-	trans := proc.NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
+	trans := NewReadTransaction(lease.ID, done, deliverChan, writeDiskChan)
 	go self.writeBlockToDisk(writeDiskChan, param.Block)
 	// init data receiver
 	self.blockServer.StartTransaction(trans)
@@ -96,7 +98,7 @@ func (self *DataServer) SendingBlock(param *proc.SendingBlockParam, succ *bool) 
 	}
 	if next.HasInit() {
 		nextParam := next.NextSendingParam()
-		nextDataServer := next.location.DataServer(self.pool)
+		nextDataServer := self.pool.DataServer(next.location)
 		err := nextDataServer.SendingBlock(nextParam, succ)
 		if err != nil || !*succ {
 			return err
@@ -123,7 +125,7 @@ func (self *DataServer) GetBlock(param *proc.GetBlockParam, lease *proc.CatLease
 	block := param.Block
 	data := make(chan []byte)
 	go self.readBlockFromDisk(data, block)
-	trans := proc.NewProviderTransaction(lease.ID, data)
+	trans := NewProviderTransaction(lease.ID, data)
 	self.blockServer.StartTransaction(trans)
 	return nil
 }

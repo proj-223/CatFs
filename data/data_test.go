@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"github.com/proj-223/CatFs/data"
 	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
 	"os"
 	"runtime/debug"
 	"testing"
@@ -47,8 +48,8 @@ func testGetBlock(block *proc.CatBlock, t *testing.T) {
 	gbp := &proc.GetBlockParam{
 		Block: block,
 	}
-	ds := proc.DataServer(0)
-	bs := gbp.Block.Locations[0].BlockClient(proc.DefaultClientPool)
+	ds := pool.DataServer(0)
+	bs := pool.DefaultClientPool.NewBlockClient(gbp.Block.Locations[0])
 	var lease proc.CatLease
 	ds.GetBlock(gbp, &lease)
 	t.Logf("Get lease %s\n", lease.ID)
@@ -67,8 +68,8 @@ func testSendBlock(block *proc.CatBlock, t *testing.T) {
 	pbp := &proc.PrepareBlockParam{
 		Block: block,
 	}
-	ds := proc.DataServer(0)
-	bs := pbp.Block.Locations[0].BlockClient(proc.DefaultClientPool)
+	ds := pool.DataServer(0)
+	bs := pool.DefaultClientPool.NewBlockClient(pbp.Block.Locations[0])
 	var lease proc.CatLease
 	ds.PrepareSendBlock(pbp, &lease)
 	t.Logf("Get lease %s\n", lease.ID)

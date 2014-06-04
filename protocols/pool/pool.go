@@ -1,7 +1,8 @@
-package protocols
+package pool
 
 import (
 	"github.com/proj-223/CatFs/config"
+	proc "github.com/proj-223/CatFs/protocols"
 )
 
 var (
@@ -12,7 +13,7 @@ func MasterServer() *MasterRPCClient {
 	return DefaultClientPool.MasterServer()
 }
 
-func DataServer(index int) *DataRPCClient {
+func DataServer(index proc.BlockLocation) *DataRPCClient {
 	return DefaultClientPool.DataServer(index)
 }
 
@@ -32,16 +33,16 @@ func (self *ClientPool) MasterServer() *MasterRPCClient {
 }
 
 // Get the Data Server Client
-func (self *ClientPool) DataServer(index int) *DataRPCClient {
-	if index >= len(self.dataServers) {
+func (self *ClientPool) DataServer(index proc.BlockLocation) *DataRPCClient {
+	if int(index) >= len(self.dataServers) {
 		return nil
 	}
 	return self.dataServers[index]
 }
 
 // Get new Block Client
-func (self *ClientPool) NewBlockClient(index int) *BlockClient {
-	host := self.conf.DataServerHost(index)
+func (self *ClientPool) NewBlockClient(index proc.BlockLocation) *BlockClient {
+	host := self.conf.DataServerHost(int(index))
 	client := NewBlockClient(host, self.conf.BlockServerConf)
 	return client
 }
