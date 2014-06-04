@@ -1,11 +1,16 @@
 package master
 
 import (
+	"errors"
 	"github.com/proj-223/CatFs/config"
 )
 
 const (
 	START_MSG = "CatFS Master RPC are start: %s"
+)
+
+var (
+	ErrNoSuchFile = errors.New("No such file")
 )
 
 var (

@@ -272,7 +272,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 }
 
 // List dir, why the return value is not a list?
-func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListdirResponse) error {
+func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResponse) error {
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {

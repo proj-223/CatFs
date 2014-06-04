@@ -140,7 +140,7 @@ type ListDirParam struct {
 	User string
 }
 
-type ListdirResponse struct {
+type ListDirResponse struct {
 	Files []*CatFileStatus
 }
 
