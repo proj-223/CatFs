@@ -15,5 +15,6 @@ func NewCatClient(conf *config.MachineConfig) *CatClient {
 	return &CatClient{
 		pool: proc.NewClientPool(conf),
 		conf: conf,
+    curdir: "/",
 	}
 }
