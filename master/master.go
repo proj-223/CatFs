@@ -37,7 +37,7 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.G
 	elements := PathToElements(query.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	start_idx := (int)(query.Offset / BLOCK_SIZE)
 	end_idx := (int)((query.Offset + query.Length) / BLOCK_SIZE)
@@ -64,7 +64,7 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 	replica.Locations = make([]proc.BlockLocation, 0)
 	for len(replica.Locations) < REPLICA_COUNT {
 		if i == len(self.livemap) {
-			return &NotEnoughAliveServer{}
+			return ErrNotEnoughAliveServer
 		}
 		idx := (proc.BlockLocation)((int(hash_int) + i) % server_num)
 		if self.livemap[idx] {
@@ -132,7 +132,7 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 	//put the lease into the lease_map of the file
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNotEnoughAliveServer
 	} else {
 		file.Lease_map[response.Lease.ID] = response.Lease
 		self.master_lease_map[response.Lease.ID] = &FileLease{Lease: response.Lease, File: file}
@@ -147,7 +147,7 @@ func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileRespo
 	file, ok := self.root.GetFile(elements)
 
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 
 	fs_state := response.Filestatus
@@ -176,7 +176,7 @@ func (self *Master) AbandonBlock(param *proc.AbandonBlockParam, succ *bool) erro
 	self.lockmgr.AcquireLock(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	blockId := param.Block.ID
 	delete(self.blockmap, blockId)
@@ -197,13 +197,14 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	e := self._get_replicas(param.Path, block)
 	if e != nil {
 		return e
 	}
 	file.Blocklist = append(file.Blocklist, block.ID)
+	file.Length = file.Length + BLOCK_SIZE
 	self.blockmap[block.ID] = block
 	return nil
 }
@@ -215,7 +216,7 @@ func (self *Master) Close(param *proc.CloseParam, succ *bool) error {
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	} else {
 		delete(file.Lease_map, param.Lease.ID)
 		delete(self.master_lease_map, param.Lease.ID)
@@ -231,10 +232,10 @@ func (self *Master) Rename(param *proc.RenameParam, succ *bool) error {
 
 	file, ok := self.root.GetFile(src_elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	if !self.root.DeleteFile(src_elements) {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	self.root.MountFile(dst_elements, file)
 	*succ = true
@@ -246,13 +247,13 @@ func (self *Master) Delete(param *proc.DeleteParam, succ *bool) error {
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 
 	//First remove the meta data
 	if !self.root.DeleteFile(elements) {
 		*succ = false
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	} else {
 		*succ = true
 	}
@@ -275,7 +276,7 @@ func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResp
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	}
 	//var file_status_list []*proc.CatFileStatus
 	for k, v := range file.File_map {
@@ -303,7 +304,7 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 	elements := PathToElements(path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return &FileNotExistError{}
+		return ErrNoSuchFile
 	} else {
 		filestatus.Filename = elements[len(elements)-1]
 		filestatus.Length = file.Length

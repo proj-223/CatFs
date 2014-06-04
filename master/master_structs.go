@@ -40,6 +40,9 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 		directory := new(GFSFile)
 		directory.File_map = make(map[string]*GFSFile)
 		directory.IsDir = isDir
+		directory.Blocklist = make([]string, 0)
+		directory.Lease_map = make(map[string]*proc.CatFileLease)
+		directory.Length = 0
 		self.File_map[relativepath[0]] = directory
 	} else {
 		directory = firstchild
@@ -49,7 +52,7 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 	} else {
 		if ok {
 			//it means the file to create already exists
-			return &FileAlreadyExistError{}
+			return ErrFileAlreadyExist
 		} else {
 			return nil
 		}
