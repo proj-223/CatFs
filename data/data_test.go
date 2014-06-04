@@ -2,6 +2,7 @@ package data_test
 
 import (
 	"bufio"
+	"github.com/proj-223/CatFs/config"
 	"github.com/proj-223/CatFs/data"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
@@ -105,7 +106,7 @@ func testSendBlock(block *proc.CatBlock, t *testing.T) {
 }
 
 func getFilename(id string) string {
-	return "/tmp/catfs-test/" + id
+	return config.DefaultMachineConfig.BlockPath(0) + "/" + id
 }
 
 // exists returns whether the given file or directory exists or not

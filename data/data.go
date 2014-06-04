@@ -4,16 +4,16 @@ import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
-	"github.com/proj-223/CatFs/utils"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
+	"time"
 )
 
 const (
 	DEFAULT_CHAN_SIZE = 10
-	DEFAULT_TIMEOUT   = 30
+	DEFAULT_TIMEOUT   = time.Second * 30
 )
 
 type PipelineParam struct {
@@ -42,12 +42,13 @@ func NewPipelineParam(lease *proc.CatLease, param *proc.PrepareBlockParam) *Pipe
 }
 
 type DataServer struct {
-	pool        *pool.ClientPool
-	conf        *config.MachineConfig
-	index       int // index of this data server
-	blockServer *BlockServer
-	pipelineMap map[string]*PipelineParam
-	leaseMap    map[string]*proc.CatLease
+	pool         *pool.ClientPool
+	conf         *config.MachineConfig
+	index        int // index of this data server
+	blockServer  *BlockServer
+	pipelineMap  map[string]*PipelineParam
+	leaseMap     map[string]*proc.CatLease
+	leaseManager *LeaseManager
 }
 
 // Prepare send a block to datanode
@@ -89,8 +90,8 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 // The block will be sent by a pipeline
 func (self *DataServer) SendingBlock(param *proc.SendingBlockParam, succ *bool) error {
 	lease := param.Lease
-	// anyway clean the lease
-	defer self.cleanLease(lease)
+	// anyway remove the lease
+	defer self.leaseManager.RemoveLease(lease)
 
 	next, ok := self.pipelineMap[lease.ID]
 	if !ok {
@@ -105,11 +106,10 @@ func (self *DataServer) SendingBlock(param *proc.SendingBlockParam, succ *bool) 
 		}
 	}
 	trans := self.blockServer.Transaction(lease.ID)
-	timeout := utils.NewTimeout(DEFAULT_TIMEOUT)
 	select {
 	case <-trans.Done:
 		*succ = true
-	case <-timeout:
+	case <-time.After(DEFAULT_TIMEOUT):
 		*succ = false
 	}
 	return nil
@@ -151,4 +151,19 @@ func (self *DataServer) initRPCServer(done chan error) {
 func (self *DataServer) initBlockServer(done chan error) {
 	err := self.blockServer.Serve()
 	done <- err
+}
+
+func (self *DataServer) Serve() error {
+	done := make(chan error, 1)
+
+	self.initBlockDir()
+	// init the rpc server
+	go self.initRPCServer(done)
+	// init the block server
+	go self.initBlockServer(done)
+	// check leases
+	go self.leaseManager.checkLease()
+
+	err := <-done
+	return err
 }

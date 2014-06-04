@@ -40,6 +40,7 @@ func (self *CatLease) New() {
 }
 
 func (self *CatLease) Renew() {
+	self.Expire = time.Now()
 	self.Expire.Add(LEASE_DURATION)
 }
 

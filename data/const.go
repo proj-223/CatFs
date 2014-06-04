@@ -13,6 +13,7 @@ const (
 
 var (
 	ErrInvalidLease = errors.New("Invalid Lease")
+	ErrInvalidPath  = errors.New("Invalid Path")
 )
 
 var (
@@ -25,30 +26,21 @@ var (
 )
 
 func Serve(index int) error {
-	return ServeDataServer(DefaultDataServers[index])
-}
-
-func ServeDataServer(data *DataServer) error {
-	done := make(chan error, 1)
-
-	// init the rpc server
-	go data.initRPCServer(done)
-	// init the block server
-	go data.initBlockServer(done)
-
-	err := <-done
-	return err
+	return DefaultDataServers[index].Serve()
 }
 
 // Create a new Master Server
 func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
+	leaseManager := NewLeaseManager()
 	ds := &DataServer{
-		pool:        pool.NewClientPool(conf),
-		conf:        conf,
-		index:       index,
-		blockServer: NewBlockServer(conf.BlockServerConf),
-		pipelineMap: make(map[string]*PipelineParam),
-		leaseMap:    make(map[string]*proc.CatLease),
+		pool:         pool.NewClientPool(conf),
+		conf:         conf,
+		index:        index,
+		blockServer:  NewBlockServer(conf.BlockServerConf, leaseManager),
+		pipelineMap:  make(map[string]*PipelineParam),
+		leaseMap:     make(map[string]*proc.CatLease),
+		leaseManager: leaseManager,
 	}
+	ds.registerLeaseListener()
 	return ds
 }
