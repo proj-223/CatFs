@@ -2,8 +2,8 @@ package master
 
 import (
 	"fmt"
-	"testing"
 	"sync"
+	"testing"
 	//"os"
 	"runtime/debug"
 	//"time"
@@ -37,27 +37,27 @@ func as(cond bool, t *testing.T) {
 
 func TestMaster(t *testing.T) {
 	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
-	IsDir:true,
-	Blocklist: make([]string, 0),
-	Lease_map: make(map[string]*proc.CatFileLease),
-	Length: 0}
+		IsDir:     true,
+		Blocklist: make([]string, 0),
+		Lease_map: make(map[string]*proc.CatFileLease),
+		Length:    0}
 
-	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)} 
+	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
 
-	master := &Master{root: *myroot, 
-			  blockmap: make(map[string]*proc.CatBlock),
-			  //mapping from LeaseID to CatFileLease and GFSFile
-			  master_lease_map: make(map[string]*FileLease),
-	          dataserver_addr: make([]string, 0),
-	          livemap: make([]bool, 0),
-			  lockmgr: *lockmanager}
+	master := &Master{root: *myroot,
+		blockmap: make(map[string]*proc.CatBlock),
+		//mapping from LeaseID to CatFileLease and GFSFile
+		master_lease_map: make(map[string]*FileLease),
+		dataserver_addr:  make([]string, 0),
+		livemap:          make([]bool, 0),
+		lockmgr:          *lockmanager}
 
 	custompath := "/helloworld.txt"
 	//first create a file
 	createFileparam := &proc.CreateFileParam{Path: custompath}
 	createFileResponse := &proc.OpenFileResponse{Filestatus: &proc.CatFileStatus{}, Lease: &proc.CatFileLease{}}
 	master.Create(createFileparam, createFileResponse)
-	as(createFileResponse.Lease!=nil, t)
+	as(createFileResponse.Lease != nil, t)
 
 	//then open the file, should be no errors
 	openFileparam := &proc.OpenFileParam{Path: custompath}
@@ -76,8 +76,5 @@ func TestMaster(t *testing.T) {
 
 	ne(e, t)
 	as(len(catblock.ID) == 0 && catblock.Locations != nil, t)
-
-
-
 
 }
