@@ -23,14 +23,14 @@ type FileLease struct {
 }
 
 type ServerStatus struct {
-	LastUpdate time
+	LastUpdate time.Time
 	Status *proc.DataServerStatus
 }
 
 //a mapping from migration destination to the blocks
 //that are to be migrated to that destination 
 type CommandMap struct {
-	Mapping map[string]*proc.MasterCommand
+	Mapping map[proc.ServerLocation]*proc.MasterCommand
 }
 
 type Master struct {
@@ -49,7 +49,7 @@ type Master struct {
 	StatusList map[proc.ServerLocation]*ServerStatus
 	//it stores for each data server the commands to
 	//be executed
-	CommandList map[proc.ServerLocation]CommandMap
+	CommandList map[proc.ServerLocation]*CommandMap
 }
 
 // Get location of the block of the specified file within the specified range
@@ -132,23 +132,27 @@ func (self *Master) _clear_expire_lease() {
 	}
 }
 
-func （self *Master) _load_command() {
+func (self *Master) _load_command() {
 	current_time := time.Now()
 	for addr, v := range self.StatusList {
 		//the server is down
 		if ( current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL ) {
-			livemap[addr] = false
+			self.livemap[addr] = false
 		}
 	}
 
 	
 	for ID, block := range self.blockmap {
 		//live serverlist
-		var down_server proc.BlockLocation
-		var max_location proc.BlockLocation = (proc.BlockLocation)0
+		//var down_server proc.BlockLocation
+		var down_server_idx int
+		var max_location proc.BlockLocation
+		max_location = (proc.BlockLocation)(0)
+
 		for i,location := range block.Locations {
-			if(!livemap[(int)location]) {
-				down_server = location
+			if(!self.livemap[(int)(location)]) {
+				//down_server = location
+				down_server_idx = i
 			}
 			if(location > max_location) {
 				max_location = location
@@ -159,14 +163,14 @@ func （self *Master) _load_command() {
 		//make it any faster?
 		j := max_location+1
 		p := 0
-		while (p<len(self.livemap)) {
-			if(j >= len(self.livemap)) {
-				j = j - len(self.livemap)
+		for p<len(self.livemap) {
+			if((int)(j) >= len(self.livemap)) {
+				j = j - (proc.BlockLocation)(len(self.livemap))
 			}
 
 			isIn := true
 			for _,location := range block.Locations {
-				if((int)location == j) {
+				if((int)(location) == (int)(j)) {
 					isIn = false
 					break
 				}
@@ -178,19 +182,22 @@ func （self *Master) _load_command() {
 			j++
 		}
 
-		backup := j
+		backup := (proc.ServerLocation)(j)
 
 		//locate the source, i.e. the previous one 
 		//of the down server
-		t := (i-1)
+		t := (down_server_idx-1)
 		if( t <0) {
 			t += REPLICA_COUNT
 		}
 
 		//create commands
-		source_loc := block.Locations[t]		
-		self.CommandList[source_loc].Mapping[backup].Blocks
-			= append(self.CommandList[source_loc].Mapping[backup].Blocks, ID)
+		source_loc := (proc.ServerLocation)(block.Locations[t])	
+		_, ok := self.CommandList[source_loc]
+		if(!ok) {
+			self.CommandList[source_loc] = &CommandMap{Mapping: make(map[proc.ServerLocation]*proc.MasterCommand)}
+		}	
+		self.CommandList[source_loc].Mapping[backup].Blocks = append(self.CommandList[source_loc].Mapping[backup].Blocks, ID)
 	}
 }
 
@@ -422,7 +429,28 @@ func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool
 
 // Send heartbeat to master
 func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
-	panic("to do")
+	st, ok := self.StatusList[param.Status.Location]
+	if(!ok) {
+		self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
+		st = self.StatusList[param.Status.Location]
+	} else {
+		st.LastUpdate = time.Now()
+	}
+	//check whether there are commands pending to be sent
+	cmdMap := self.CommandList[param.Status.Location]
+
+	if(cmdMap.Mapping == nil) {
+		//no pending commands to execute
+		return nil
+	}
+
+	for _, v := range cmdMap.Mapping {
+		rep.Command = append(rep.Command, v)
+	}
+
+	//delete the commands before send the commands out
+	delete(self.CommandList, param.Status.Location)
+	return nil
 }
 
 // Send blockreport to master
