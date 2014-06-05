@@ -41,9 +41,9 @@ type ServerLocation int
 
 type DataServerStatus struct {
 	Location     ServerLocation
-	AvaiableSize int64
-	DataSize     int64
-	TotalSize    int64
+	AvaiableSize uint64
+	DataSize     uint64
+	TotalSize    uint64
 	Errors       []string
 	BlockReports map[string]*DataBlockReport
 }
@@ -66,7 +66,7 @@ const (
 	// remove some blocks
 	// Blocks is the uuid of the blocks
 	// DstMachine is not important
-	CleanCommand MasterCommand = iota
+	CleanCommand MasterCommandType = iota
 	// Copy blocks from a machine to another machine
 	// Blocks is the uuid of the blocks
 	// DstMachine is the destination of the blocks

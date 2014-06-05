@@ -163,6 +163,8 @@ func (self *DataServer) Serve() error {
 	go self.initBlockServer(done)
 	// check leases
 	go self.leaseManager.checkLease()
+	// check and send heart beat
+	go self.examServer()
 
 	err := <-done
 	return err
