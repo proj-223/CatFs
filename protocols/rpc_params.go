@@ -155,6 +155,8 @@ type HeartbeatParam struct {
 }
 
 type HeartbeatResponse struct {
+	// a list of command from the master
+	Command []*MasterCommand
 }
 
 // TODO do we need it?

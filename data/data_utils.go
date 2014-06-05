@@ -13,8 +13,8 @@ const (
 )
 
 func (self *DataServer) blockFilename(block *proc.CatBlock) string {
-	// TODO get file name
-	return "/tmp/catfs-test/" + block.ID
+	path := self.conf.BlockPath(self.index)
+	return path + "/" + block.ID
 }
 
 // go routine to receive data
@@ -66,12 +66,26 @@ func (self *DataServer) readBlockFromDisk(data chan<- []byte, block *proc.CatBlo
 	}
 }
 
-func (self *DataServer) cleanLease(lease *proc.CatLease) {
-	if _, ok := self.pipelineMap[lease.ID]; ok {
-		delete(self.pipelineMap, lease.ID)
+func (self *DataServer) initBlockDir() error {
+	path := self.conf.BlockPath(self.index)
+	finfo, err := os.Stat(path)
+	if err == nil && finfo.IsDir() {
+		return nil
 	}
-	if _, ok := self.leaseMap[lease.ID]; ok {
-		delete(self.leaseMap, lease.ID)
+	if err == nil && !finfo.IsDir() {
+		return ErrInvalidPath
 	}
-	self.blockServer.StopTransaction(lease.ID)
+	// create dir
+	return os.MkdirAll(path, 0775)
+}
+
+func (self *DataServer) registerLeaseListener() {
+	self.leaseManager.OnRemoveLease(func(lease *proc.CatLease) {
+		if _, ok := self.pipelineMap[lease.ID]; ok {
+			delete(self.pipelineMap, lease.ID)
+		}
+		if _, ok := self.leaseMap[lease.ID]; ok {
+			delete(self.leaseMap, lease.ID)
+		}
+	})
 }

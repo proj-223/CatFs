@@ -15,8 +15,9 @@ type MasterConfig struct {
 }
 
 type DataServerConfig struct {
-	Host string
-	Port string
+	Host      string
+	Port      string
+	BlockPath string
 }
 
 type MachineConfig struct {
@@ -46,6 +47,10 @@ func (self *MachineConfig) DataServerAddrs() []string {
 	return addrs
 }
 
+func (self *MachineConfig) BlockPath(index int) string {
+	return self.DataServers[index].BlockPath
+}
+
 const (
 	DefaultHost = "localhost"
 )
@@ -73,7 +78,8 @@ var (
 
 func DefaultDataServerConfig(port string) *DataServerConfig {
 	return &DataServerConfig{
-		Host: DefaultHost,
-		Port: port,
+		Host:      DefaultHost,
+		Port:      port,
+		BlockPath: "/tmp/cat-fs-blocks/" + port,
 	}
 }

@@ -2,6 +2,7 @@ package data
 
 import (
 	proc "github.com/proj-223/CatFs/protocols"
+	"time"
 )
 
 type LeaseManager struct {
@@ -34,6 +35,25 @@ func (self *LeaseManager) OnRemoveLease(f func(lease *proc.CatLease)) {
 	self.removeLeaseListener = append(self.removeLeaseListener, f)
 }
 
+func (self *LeaseManager) checkLease() {
+	c := time.Tick(proc.LEASE_DURATION)
+	for _ = range c {
+		go self.checkLeaseRoutine()
+	}
+}
+
+func (self *LeaseManager) checkLeaseRoutine() {
+	now := time.Now()
+	for _, lease := range self.leases {
+		if now.After(lease.Expire) {
+			self.RemoveLease(lease)
+		}
+	}
+}
+
 func NewLeaseManager() *LeaseManager {
-	return new(LeaseManager)
+	manager := &LeaseManager{
+		leases: make(map[string]*proc.CatLease),
+	}
+	return manager
 }

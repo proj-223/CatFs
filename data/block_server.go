@@ -2,6 +2,7 @@ package data
 
 import (
 	"github.com/proj-223/CatFs/config"
+	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
 	"log"
 	"net"
@@ -43,6 +44,7 @@ type BlockServer struct {
 	transactions map[string]*Transaction
 	blockSize    int64
 	conf         *config.BlockServerConfig
+	leaseManager *LeaseManager
 }
 
 // Start by DataNode
@@ -81,16 +83,6 @@ func (self *BlockServer) Transaction(transID string) *Transaction {
 // method to add an entry for the transaction
 func (self *BlockServer) StartTransaction(tran *Transaction) {
 	self.transactions[tran.ID] = tran
-}
-
-// Stop one transaction, it may because the lease is out of date
-// or terminate by client
-func (self *BlockServer) StopTransaction(leaseID string) {
-	// if the lease is in the transation map
-	if _, ok := self.transactions[leaseID]; ok {
-		// delete the transaction from map
-		delete(self.transactions, leaseID)
-	}
 }
 
 // Finish the transaction
@@ -181,7 +173,7 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 }
 
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
-	// anyway, stop transaction
+	// anyway, finish transaction
 	defer self.FinishTransaction(transID)
 	reqBuf := make([]byte, pool.BLOCK_REQUEST_SIZE)
 	for {
@@ -214,10 +206,23 @@ func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 	}
 }
 
-func NewBlockServer(conf *config.BlockServerConfig) *BlockServer {
-	return &BlockServer{
+func (self *BlockServer) registerLeaseListener() {
+	self.leaseManager.OnRemoveLease(func(lease *proc.CatLease) {
+		// if the lease is in the transation map
+		if _, ok := self.transactions[lease.ID]; ok {
+			// delete the transaction from map
+			delete(self.transactions, lease.ID)
+		}
+	})
+}
+
+func NewBlockServer(conf *config.BlockServerConfig, leaseManager *LeaseManager) *BlockServer {
+	bs := &BlockServer{
 		conf:         conf,
 		blockSize:    conf.BlockSize,
 		transactions: make(map[string]*Transaction),
+		leaseManager: leaseManager,
 	}
+	bs.registerLeaseListener()
+	return bs
 }
