@@ -44,7 +44,11 @@ func TestMaster(t *testing.T) {
 
 	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
 	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082"}
-	server_livemap := []bool{true, true, true}
+	server_livemap := make(map[string]bool)
+	server_livemap["localhost:8080"] = true
+	server_livemap["localhost:8081"] = true
+	server_livemap["localhost:8082"] = true
+
 	master := &Master{root: *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
 		//mapping from LeaseID to CatFileLease and GFSFile
