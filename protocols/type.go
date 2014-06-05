@@ -62,8 +62,19 @@ type DataBlockReport struct {
 
 type MasterCommandType int
 
+const (
+	// remove some blocks
+	// Blocks is the uuid of the blocks
+	// DstMachine is not important
+	CleanCommand MasterCommand = iota
+	// Copy blocks from a machine to another machine
+	// Blocks is the uuid of the blocks
+	// DstMachine is the destination of the blocks
+	MigrationCommand
+)
+
 type MasterCommand struct {
-	Command  MasterCommandType
-	Machines []ServerLocation
-	Blocks   []string
+	Command    MasterCommandType
+	Blocks     []string
+	DstMachine ServerLocation
 }
