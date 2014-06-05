@@ -15,10 +15,22 @@ import (
 
 const REPLICA_COUNT = 3
 const BLOCK_SIZE = 1024
+const HEARTBEAT_INTERVAL = 30
 
 type FileLease struct {
 	Lease *proc.CatFileLease
 	File  *GFSFile
+}
+
+type ServerStatus struct {
+	LastUpdate time
+	Status *proc.DataServerStatus
+}
+
+//a mapping from migration destination to the blocks
+//that are to be migrated to that destination 
+type CommandMap struct {
+	Mapping map[string]*proc.MasterCommand
 }
 
 type Master struct {
@@ -31,10 +43,13 @@ type Master struct {
 	//servers that are currently down
 	dataserver_addr  []string
 	//the key is the address of data server
-	livemap          map[string]bool
+	livemap          []bool
 	conf             *config.MachineConfig
 	lockmgr          LockManager
-	StatusList map[string]*proc.DataServerStatus
+	StatusList map[proc.ServerLocation]*ServerStatus
+	//it stores for each data server the commands to
+	//be executed
+	CommandList map[proc.ServerLocation]CommandMap
 }
 
 // Get location of the block of the specified file within the specified range
@@ -77,8 +92,8 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 		if idx < 0 {
 			idx = idx + (proc.BlockLocation)(server_num)
 		}
-		key := self.dataserver_addr[int(idx)]
-		if self.livemap[key] {
+		//key := self.dataserver_addr[int(idx)]
+		if self.livemap[idx] {
 			replica.Locations = append(replica.Locations, idx)
 		}
 		i++
@@ -114,6 +129,68 @@ func (self *Master) _clear_expire_lease() {
 			//delete the lease from the global map of the master
 			delete(self.master_lease_map, k)
 		}
+	}
+}
+
+func （self *Master) _load_command() {
+	current_time := time.Now()
+	for addr, v := range self.StatusList {
+		//the server is down
+		if ( current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL ) {
+			livemap[addr] = false
+		}
+	}
+
+	
+	for ID, block := range self.blockmap {
+		//live serverlist
+		var down_server proc.BlockLocation
+		var max_location proc.BlockLocation = (proc.BlockLocation)0
+		for i,location := range block.Locations {
+			if(!livemap[(int)location]) {
+				down_server = location
+			}
+			if(location > max_location) {
+				max_location = location
+			}
+		}
+
+		//find the backup server for the down server, can I
+		//make it any faster?
+		j := max_location+1
+		p := 0
+		while (p<len(self.livemap)) {
+			if(j >= len(self.livemap)) {
+				j = j - len(self.livemap)
+			}
+
+			isIn := true
+			for _,location := range block.Locations {
+				if((int)location == j) {
+					isIn = false
+					break
+				}
+			}
+			if(isIn) {
+				break
+			}
+			p++
+			j++
+		}
+
+		backup := j
+
+		//locate the source, i.e. the previous one 
+		//of the down server
+		t := (i-1)
+		if( t <0) {
+			t += REPLICA_COUNT
+		}
+
+		//create commands
+		source_loc := block.Locations[t]		
+		self.CommandList[source_loc].Mapping[backup].Blocks
+			= append(self.CommandList[source_loc].Mapping[backup].Blocks, ID)
 	}
 }
 
@@ -337,9 +414,8 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 // Register a data server
 func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
 	//panic("to do")
-	addr := self.dataserver_addr[(int)(param.Status.Location)]
-	self.StatusList[addr] = param.Status
-	self.livemap[addr] = true
+	self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
+	self.livemap[(int)(param.Status.Location)] = true
 	*succ = true
 	return nil
 }
