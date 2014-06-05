@@ -65,6 +65,7 @@ const (
 
 type GetBlocksLocationResponse struct {
 	Blocks []*CatBlock
+	EOF    bool
 }
 
 type OpenFileParam struct {
