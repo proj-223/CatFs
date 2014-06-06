@@ -1,11 +1,29 @@
 package client
 
 import (
+	"errors"
+	"github.com/proj-223/CatFs/config"
+	proc "github.com/proj-223/CatFs/protocols"
+	"github.com/proj-223/CatFs/protocols/pool"
+	"io"
 	"os"
+	"sync"
+)
+
+var (
+	ErrRead = errors.New("Read Error")
 )
 
 type CatFile struct {
-	// TODO
+	filename     string
+	opLease      *proc.CatFileLease
+	offset       int64
+	pool         *pool.ClientPool
+	currentblock []byte
+	blockOff     int64
+	lock         *sync.Mutex
+	isEOF        bool
+	conf         *config.MachineConfig
 }
 
 // type io.Closer
@@ -18,26 +36,122 @@ func (self *CatFile) Close() error {
 // IsExist returns a boolean indicating whether a file
 // or directory already exists.
 func (self *CatFile) IsExist() bool {
-	panic("to do")
+	return true
 }
 
 // IsDir returns a boolean indicating whether a file
 // is a directory
 func (self *CatFile) IsDir() bool {
-	panic("to do")
+	return false
 }
 
 // Read reads up to len(b) bytes from the File. It returns the number of bytes read
 // and an error, if any. EOF is signaled by a zero count with err set to io.EOF.
 func (self *CatFile) Read(b []byte) (n int, err error) {
-	panic("to do")
+	return self.ReadAt(b, self.offset)
 }
 
 // ReadAt reads len(b) bytes from the File starting at byte offset off. It
 // returns the number of bytes read and the error, if any. ReadAt always returns
 // a non-nil error when n < len(b). At end of file, that error is io.EOF.
-func (self *CatFile) ReadAt(b []byte, off int64) (n int, err error) {
-	panic("to do")
+func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	n = 0
+	blocksize := self.conf.BlockServerConf.BlockSize
+	blockStartOffset := self.blockOff * blocksize
+	blockEndOffset := self.blockOff*blocksize + (int64)(len(self.currentblock))
+
+	if len(self.currentblock) == 0 {
+		self.offset = off
+		self.blockOff = off / blocksize
+		// go routine to get block
+		return 0, ErrRead
+	}
+
+	if (off < blockStartOffset) || (off >= blockEndOffset) {
+		self.blockOff = off / blocksize
+		self.offset = off
+		//go routine here to read the required block
+		return 0, ErrRead
+	}
+
+	curoff := off - self.blockOff*blocksize
+	for curoff < (int64)(len(self.currentblock)) {
+		if n >= len(b) {
+			self.offset = off + (int64)(n)
+			return n, nil
+		}
+
+		b[n] = self.currentblock[curoff]
+		n++
+		curoff++
+	}
+
+	if self.isEOF == true { // end of file
+		self.offset = -1
+		return n, io.EOF
+	}
+
+	self.offset = off + (int64)(n)
+	self.blockOff += 1
+	// go routine to read another block
+	return n, ErrRead
+}
+
+func (self *CatFile) GetNewBlock() error {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	master := self.pool.MasterServer()
+	blockquery := &proc.BlockQueryParam{
+		Path:   self.filename,
+		Offset: self.offset,
+		Length: self.conf.BlockServerConf.BlockSize,
+		Lease:  self.opLease,
+	}
+	var resp proc.GetBlocksLocationResponse
+	err := master.GetBlockLocation(blockquery, &resp)
+	if err != nil && err != io.EOF {
+		return err
+	}
+
+	self.isEOF = resp.EOF
+	block := resp.Blocks[0]
+	err = self.GetBlockData(block)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (self *CatFile) GetBlockData(block *proc.CatBlock) error {
+	location := block.Locations[0]
+	dataServer := self.pool.DataServer(location) //*DataRPCClient
+	var lease proc.CatLease
+	param := &proc.GetBlockParam{
+		Block: block,
+	}
+	err := dataServer.GetBlock(param, &lease)
+	if err != nil {
+		return err
+	}
+
+	blockClient := self.pool.NewBlockClient(location)
+	transID := lease.ID
+	ch := make(chan []byte)
+	data := []byte{}
+	self.currentblock = []byte{}
+	go blockClient.GetBlock(ch, transID)
+	for data = range ch {
+		for _, value := range data {
+			self.currentblock = append(self.currentblock, value)
+		}
+	}
+
+	return nil
 }
 
 // Readdir reads the contents of the directory associated with file and returns

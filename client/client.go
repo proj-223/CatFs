@@ -134,7 +134,30 @@ func (self *CatClient) Close() error {
 }
 
 func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
-	panic("to do")
+	master := self.pool.MasterServer()
+
+	opfileparam := &proc.OpenFileParam{
+		Path: Abs(self.curdir, name),
+		Mode: mode,
+	}
+	var openresponse proc.OpenFileResponse
+	err = master.Open(opfileparam, &openresponse)
+	if err != nil {
+		return nil, err
+	}
+
+	var block []byte
+	block = []byte{}
+	return &CatFile{
+		filename:     opfileparam.Path,
+		opLease:      openresponse.Lease,
+		offset:       0,
+		pool:         self.pool,
+		currentblock: block,
+		blockOff:     0,
+		isEOF:        false,
+		conf:         self.conf,
+	}, nil
 }
 
 func (self *CatClient) getFilestatus(name string) (*proc.CatFileStatus, error) {
