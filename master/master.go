@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
-	//"fmt"
+	"fmt"
 )
 
 const REPLICA_COUNT = 3
 const BLOCK_SIZE = 1024
-const HEARTBEAT_INTERVAL = 30
+const HEARTBEAT_INTERVAL = time.Microsecond
 
 type FileLease struct {
 	Lease *proc.CatFileLease
@@ -29,9 +29,9 @@ type ServerStatus struct {
 
 //a mapping from migration destination to the blocks
 //that are to be migrated to that destination 
-type CommandMap struct {
-	Mapping map[proc.ServerLocation]*proc.MasterCommand
-}
+/*type CommandList struct {
+	CmdList []*proc.MasterCommand
+}*/
 
 type Master struct {
 	root GFSFile
@@ -49,7 +49,7 @@ type Master struct {
 	StatusList map[proc.ServerLocation]*ServerStatus
 	//it stores for each data server the commands to
 	//be executed
-	CommandList map[proc.ServerLocation]*CommandMap
+	CommandList map[proc.ServerLocation]chan *proc.MasterCommand
 }
 
 // Get location of the block of the specified file within the specified range
@@ -62,8 +62,11 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.G
 	start_idx := (int)(query.Offset / BLOCK_SIZE)
 	end_idx := (int)((query.Offset + query.Length) / BLOCK_SIZE)
 	block_count := len(file.Blocklist)
-	if end_idx > block_count-1 {
+	if end_idx >= block_count-1 {
 		end_idx = block_count - 1
+		blocks.EOF = true
+	} else {
+		blocks.EOF = false
 	}
 
 	blocks.Blocks = make([]*proc.CatBlock, 0)
@@ -133,6 +136,7 @@ func (self *Master) _clear_expire_lease() {
 }
 
 func (self *Master) _load_command() {
+	fmt.Println("Check liveness begin")
 	current_time := time.Now()
 	for addr, v := range self.StatusList {
 		//the server is down
@@ -140,7 +144,6 @@ func (self *Master) _load_command() {
 			self.livemap[addr] = false
 		}
 	}
-
 	
 	for ID, block := range self.blockmap {
 		//live serverlist
@@ -149,14 +152,20 @@ func (self *Master) _load_command() {
 		var max_location proc.BlockLocation
 		max_location = (proc.BlockLocation)(0)
 
+		needsMigration := false
 		for i,location := range block.Locations {
 			if(!self.livemap[(int)(location)]) {
 				//down_server = location
 				down_server_idx = i
+				needsMigration = true
 			}
 			if(location > max_location) {
 				max_location = location
 			}
+		}
+
+		if(!needsMigration) {
+			continue
 		}
 
 		//find the backup server for the down server, can I
@@ -193,12 +202,24 @@ func (self *Master) _load_command() {
 
 		//create commands
 		source_loc := (proc.ServerLocation)(block.Locations[t])	
+		Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
 		_, ok := self.CommandList[source_loc]
 		if(!ok) {
-			self.CommandList[source_loc] = &CommandMap{Mapping: make(map[proc.ServerLocation]*proc.MasterCommand)}
+			self.CommandList[source_loc] = make(chan *proc.MasterCommand)
 		}	
-		self.CommandList[source_loc].Mapping[backup].Blocks = append(self.CommandList[source_loc].Mapping[backup].Blocks, ID)
+		self.CommandList[source_loc] <- Cmd
 	}
+}
+
+func (self *Master) StartMonitor() {
+	monitor := func() {
+		for {
+			//fmt.Println("start monitor")
+			self._load_command()
+			time.Sleep(HEARTBEAT_INTERVAL)
+		}
+	}
+	go monitor()
 }
 
 // Create a file in a given path
@@ -437,19 +458,17 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 		st.LastUpdate = time.Now()
 	}
 	//check whether there are commands pending to be sent
-	cmdMap := self.CommandList[param.Status.Location]
+	cmdList := self.CommandList[param.Status.Location]
 
-	if(cmdMap.Mapping == nil) {
-		//no pending commands to execute
-		return nil
+	for {
+		select {
+			case Cmd := <- cmdList:
+				rep.Command = append(rep.Command, Cmd)
+			default: 
+				break
+		}
 	}
 
-	for _, v := range cmdMap.Mapping {
-		rep.Command = append(rep.Command, v)
-	}
-
-	//delete the commands before send the commands out
-	delete(self.CommandList, param.Status.Location)
 	return nil
 }
 

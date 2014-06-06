@@ -6,7 +6,7 @@ import (
 	"testing"
 	//"os"
 	"runtime/debug"
-	//"time"
+	"time"
 	proc "github.com/proj-223/CatFs/protocols"
 )
 
@@ -43,8 +43,8 @@ func TestMaster(t *testing.T) {
 		Length:    0}
 
 	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
-	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082"}
-	server_livemap := []bool{true, true, true}
+	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082", "localhost:8083", "localhost:8084"}
+	server_livemap := []bool{true, true, true, true, true}
 
 	master := &Master{root: *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
@@ -52,7 +52,25 @@ func TestMaster(t *testing.T) {
 		master_lease_map: make(map[string]*FileLease),
 		dataserver_addr:  server_addr_list,
 		livemap:          server_livemap,
-		lockmgr:          *lockmanager}
+		lockmgr:          *lockmanager,
+		StatusList:       make(map[proc.ServerLocation]*ServerStatus),
+		CommandList: make(map[proc.ServerLocation]chan *proc.MasterCommand)}
+
+	//registerList := make([]*proc.RegisterDataParam, 5)
+
+	var succ bool
+	for i :=0; i<5; i++ {
+		status := &proc.DataServerStatus{
+			Location: (proc.ServerLocation)(i),
+			AvaiableSize: 0,
+			DataSize: 0,
+			TotalSize: 0,
+			Errors: make([]string, 0),
+			BlockReports: make(map[string]*proc.DataBlockReport)}
+		//registerList = append(registerList, )
+		master.RegisterDataServer(&proc.RegisterDataParam{Status: status}, &succ)
+	}
+
 
 	custompath := "/helloworld.txt"
 	custompath2 := "/folder1/haohuan.bmp"
@@ -111,4 +129,11 @@ func TestMaster(t *testing.T) {
 	as(ListDirResponse.Files[0].Filename == "haohuan.bmp", t)
 	as(ListDirResponse.Files[1].Filename == "haohuan2.bmp", t)
 
+	master.StartMonitor()
+	time.Sleep(2*HEARTBEAT_INTERVAL)
+	as(len(master.CommandList)>0, t)
+	
+	for k, v := range master.CommandList {
+		fmt.Println("key: ", k, v)
+	}
 }
