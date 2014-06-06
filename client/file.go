@@ -21,10 +21,10 @@ type CatFile struct {
 	path         string
 	filestatus   *proc.CatFileStatus
 	lease        *proc.CatFileLease
-	offset       int64
 	pool         *pool.ClientPool
 	currentblock []byte
 	blockOff     int64
+	offset       int64
 	lock         *sync.Mutex
 	isEOF        bool
 	conf         *config.MachineConfig
@@ -90,7 +90,7 @@ func (self *CatFile) IsDir() bool {
 
 // Read reads up to len(b) bytes from the File. It returns the number of bytes read
 // and an error, if any. EOF is signaled by a zero count with err set to io.EOF.
-func (self *CatFile) Read(b []byte) (n int, err error) {
+func (self *CatFile) Read(b []byte) (int, error) {
 	return self.ReadAt(b, self.offset)
 }
 
@@ -102,43 +102,33 @@ func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
 	defer self.lock.Unlock()
 
 	n = 0
-	blocksize := self.conf.BlockServerConf.BlockSize
+	blocksize := self.conf.BlockSize()
 	blockStartOffset := self.blockOff * blocksize
-	blockEndOffset := self.blockOff*blocksize + (int64)(len(self.currentblock))
+	blockEndOffset := blockStartOffset + (int64)(len(self.currentblock))
 
-	if len(self.currentblock) == 0 {
-		self.offset = off
-		self.blockOff = off / blocksize
+	self.offset = off % blocksize
+	self.blockOff = off / blocksize
+	if len(self.currentblock) == 0 || (off < blockStartOffset) || (off >= blockEndOffset) {
 		go self.GetNewBlock()
 		return 0, ErrRead
 	}
 
-	if (off < blockStartOffset) || (off >= blockEndOffset) {
-		self.blockOff = off / blocksize
-		self.offset = off
-		go self.GetNewBlock()
-		return 0, ErrRead
-	}
-
-	curoff := off - self.blockOff*blocksize
-	for curoff < (int64)(len(self.currentblock)) {
+	for self.offset < (int64)(len(self.currentblock)) {
 		if n >= len(b) {
-			self.offset = off + (int64)(n)
 			return n, nil
 		}
-
-		b[n] = self.currentblock[curoff]
+		b[n] = self.currentblock[self.offset]
 		n++
-		curoff++
+		self.offset++
 	}
 
-	if self.isEOF == true { // end of file
+	if self.isEOF { // end of file
 		self.offset = -1
 		return n, io.EOF
 	}
 
-	self.offset = off + (int64)(n)
-	self.blockOff += 1
+	self.offset = 0 // set offset to 0
+	self.blockOff++ // set blockOffset to next block offset
 	go self.GetNewBlock()
 	return n, ErrRead
 }
@@ -148,10 +138,11 @@ func (self *CatFile) GetNewBlock() error {
 	defer self.lock.Unlock()
 
 	master := self.pool.MasterServer()
+	offset := self.conf.BlockSize() * self.blockOff
 	blockquery := &proc.BlockQueryParam{
 		Path:   self.path,
-		Offset: self.offset,
-		Length: self.conf.BlockServerConf.BlockSize,
+		Offset: offset,
+		Length: self.conf.BlockSize(),
 		Lease:  self.lease,
 	}
 	var resp proc.GetBlocksLocationResponse
@@ -166,7 +157,6 @@ func (self *CatFile) GetNewBlock() error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -183,17 +173,13 @@ func (self *CatFile) GetBlockData(block *proc.CatBlock) error {
 	}
 
 	blockClient := self.pool.NewBlockClient(location)
-	transID := lease.ID
 	ch := make(chan []byte)
-	data := []byte{}
-	self.currentblock = []byte{}
-	go blockClient.GetBlock(ch, transID)
-	for data = range ch {
+	go blockClient.GetBlock(ch, lease.ID)
+	for data := range ch {
 		for _, value := range data {
 			self.currentblock = append(self.currentblock, value)
 		}
 	}
-
 	return nil
 }
 

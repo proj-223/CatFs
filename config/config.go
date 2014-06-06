@@ -47,6 +47,10 @@ func (self *MachineConfig) DataServerAddrs() []string {
 	return addrs
 }
 
+func (self *MachineConfig) BlockSize() int64 {
+	return self.BlockServerConf.BlockSize
+}
+
 func (self *MachineConfig) BlockPath(index int) string {
 	return self.DataServers[index].BlockPath
 }
