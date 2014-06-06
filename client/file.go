@@ -12,6 +12,7 @@ import (
 
 var (
 	ErrRead = errors.New("Read Error")
+	ErrWrite = errors.New("Writer Error")
 )
 
 type CatFile struct {
@@ -30,7 +31,18 @@ type CatFile struct {
 // Close closes the File, rendering it unusable for I/O. It returns an error, if
 // any.
 func (self *CatFile) Close() error {
-	panic("to do")
+	master := self.pool.MasterServer()
+	param := &proc.CloseParam {
+		Path : self.filename,
+		Lease : self.opLease,
+	}
+	var succ bool
+	err := master.Close(param, &succ)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // IsExist returns a boolean indicating whether a file
@@ -66,14 +78,14 @@ func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
 	if len(self.currentblock) == 0 {
 		self.offset = off
 		self.blockOff = off / blocksize
-		// go routine to get block
+		go self.GetNewBlock()
 		return 0, ErrRead
 	}
 
 	if (off < blockStartOffset) || (off >= blockEndOffset) {
 		self.blockOff = off / blocksize
 		self.offset = off
-		//go routine here to read the required block
+		go self.GetNewBlock()
 		return 0, ErrRead
 	}
 
@@ -96,7 +108,7 @@ func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
 
 	self.offset = off + (int64)(n)
 	self.blockOff += 1
-	// go routine to read another block
+	go self.GetNewBlock()
 	return n, ErrRead
 }
 
@@ -207,5 +219,97 @@ func (self *CatFile) Write(b []byte) (n int, err error) {
 // returns the number of bytes written and an error, if any. WriteAt returns a
 // non-nil error when n != len(b).
 func (self *CatFile) WriteAt(b []byte, off int64) (n int, err error) {
-	panic("to do")
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	n = 0
+	blocksize := self.conf.BlockServerConf.BlockSize
+	blockStartOffset := self.blockOff * blocksize
+	blockEndOffset := self.blockOff*blocksize + (int64)(len(self.currentblock))
+
+	if len(self.currentblock) == 0 {
+		self.offset = off
+		self.blockOff = off / blocksize
+		// go routine to send block
+		return 0, ErrWrite
+	}
+
+	if (off < blockStartOffset) || (off >= blockEndOffset) {
+		self.blockOff = off / blocksize
+		self.offset = off
+		//go routine here to send the required block
+		return 0, ErrWrite
+	}
+
+	curoff := off - self.blockOff*blocksize
+	for curoff < (int64)(len(self.currentblock)) {
+		if n >= len(b) {
+			self.offset = off + (int64)(n)
+			return n, nil
+		}
+
+		self.currentblock[curoff] = b[n]
+		n++
+		curoff++
+	}
+
+	/*if self.isEOF == true { // don't have to care about the end of file ?
+		self.offset = -1
+		return n, io.EOF
+	}*/
+
+	self.offset = off + (int64)(n)
+	self.blockOff += 1
+	// go routine to send another block
+	return n, ErrRead
+}
+
+func (self *CatFile) SendNewBlock() error {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+
+	master := self.pool.MasterServer()
+	param := &proc.AddBlockParam{
+		Path : self.filename,
+		Lease : self.opLease,
+	}
+	var catblock proc.CatBlock
+	err := master.AddBlock(param, &catblock)
+	if err != nil {
+		return err
+	} 
+
+	err = self.WriteBlockData(&catblock)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (self *CatFile) WriteBlockData(block *proc.CatBlock) error {
+	location := block.Locations[0]
+	dataServer := self.pool.DataServer(location) //*DataRPCClient
+	var lease proc.CatLease
+	param := &proc.GetBlockParam{
+		Block: block,
+	}
+	err := dataServer.GetBlock(param, &lease)
+	if err != nil {
+		return err
+	}
+
+	blockClient := self.pool.NewBlockClient(location)
+	transID := lease.ID
+	ch := make(chan []byte)
+	data := []byte{}
+	self.currentblock = []byte{}
+	go blockClient.GetBlock(ch, transID)
+	for data = range ch {
+		for _, value := range data {
+			self.currentblock = append(self.currentblock, value)
+		}
+	}
+
+	return nil
 }
