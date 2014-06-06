@@ -11,6 +11,7 @@ const (
 	BLOCK_BUFFER_SIZE  = 1 << 10
 	BLOCK_REQUEST_SIZE = 100
 	BLOCK_SEND_SIZE    = 1 << 9
+	DEFAULT_CHAN_SIZE  = 10
 )
 
 const (
@@ -49,6 +50,19 @@ func NewBlockClient(host string, conf *config.BlockServerConfig) *BlockClient {
 		blockSize: conf.BlockSize,
 		addr:      host + ":" + conf.Port,
 	}
+}
+
+func (self *BlockClient) SendBlockAll(data []byte, transID string) error {
+	sendChan := make(chan []byte, DEFAULT_CHAN_SIZE)
+	go self.SendBlock(sendChan, transID)
+	sliceStart := 0
+	for sliceStart+BLOCK_BUFFER_SIZE < len(data) {
+		sendChan <- data[sliceStart : sliceStart+BLOCK_BUFFER_SIZE]
+		sliceStart += BLOCK_BUFFER_SIZE
+	}
+	sendChan <- data[sliceStart:]
+	close(sendChan)
+	return nil
 }
 
 func (self *BlockClient) SendBlock(c chan []byte, transID string) {
