@@ -133,8 +133,23 @@ func (self *CatClient) Close() error {
 	return nil
 }
 
-func (self *CatClient) Open(name string, mode int) (file *CatFile, err error) {
-	panic("to do")
+func (self *CatClient) Open(name string, mode int) (*CatFile, error) {
+	file := self.GetFile(name)
+	err := file.Open(mode)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (self *CatClient) GetFile(name string) *CatFile {
+	path := Abs(self.curdir, name)
+	return &CatFile{
+		path:   path,
+		pool:   self.pool,
+		opened: false,
+		conf:   self.conf,
+	}
 }
 
 func (self *CatClient) getFilestatus(name string) (*proc.CatFileStatus, error) {
