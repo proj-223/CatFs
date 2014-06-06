@@ -21,8 +21,9 @@ var (
 )
 
 var (
-	ErrInvalidLease = errors.New("Invalid Lease")
-	ErrInvalidPath  = errors.New("Invalid Path")
+	ErrInvalidLease    = errors.New("Invalid Lease")
+	ErrInvalidPath     = errors.New("Invalid Path")
+	ErrOperationFailed = errors.New("Operation Failed")
 )
 
 var (

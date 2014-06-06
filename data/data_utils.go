@@ -13,8 +13,12 @@ const (
 )
 
 func (self *DataServer) blockFilename(block *proc.CatBlock) string {
+	return self.blockFilenameFromID(block.ID)
+}
+
+func (self *DataServer) blockFilenameFromID(blockID string) string {
 	path := self.conf.BlockPath(self.index)
-	return path + "/" + block.ID
+	return path + "/" + blockID
 }
 
 // go routine to receive data
