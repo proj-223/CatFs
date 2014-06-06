@@ -11,13 +11,16 @@ import (
 )
 
 var (
-	ErrRead  = errors.New("Read Error")
-	ErrWrite = errors.New("Writer Error")
+	ErrFileHasOpened = errors.New("File has opened")
+	ErrFileNotOpened = errors.New("File has not opened")
+	ErrRead          = errors.New("Read Error")
+	ErrWrite         = errors.New("Writer Error")
 )
 
 type CatFile struct {
-	filename     string
-	opLease      *proc.CatFileLease
+	path         string
+	filestatus   *proc.CatFileStatus
+	lease        *proc.CatFileLease
 	offset       int64
 	pool         *pool.ClientPool
 	currentblock []byte
@@ -25,23 +28,51 @@ type CatFile struct {
 	lock         *sync.Mutex
 	isEOF        bool
 	conf         *config.MachineConfig
+	opened       bool
+}
+
+// open this file, if it is not opened
+func (self *CatFile) Open(mode int) error {
+	if self.opened {
+		return ErrFileHasOpened
+	}
+	master := self.pool.MasterServer()
+	opfileparam := &proc.OpenFileParam{
+		Path: self.path,
+		Mode: mode,
+	}
+	var resp proc.OpenFileResponse
+	err := master.Open(opfileparam, &resp)
+	if err != nil {
+		return err
+	}
+	self.filestatus = resp.Filestatus
+	self.lease = resp.Lease
+	self.offset = 0
+	self.blockOff = 0
+	self.isEOF = false
+	self.opened = false
+	return nil
 }
 
 // type io.Closer
 // Close closes the File, rendering it unusable for I/O. It returns an error, if
 // any.
 func (self *CatFile) Close() error {
+	if !self.opened {
+		return ErrFileNotOpened
+	}
 	master := self.pool.MasterServer()
 	param := &proc.CloseParam{
-		Path:  self.filename,
-		Lease: self.opLease,
+		Path:  self.path,
+		Lease: self.lease,
 	}
 	var succ bool
 	err := master.Close(param, &succ)
 	if err != nil {
 		return err
 	}
-
+	self.opened = true
 	return nil
 }
 
@@ -118,10 +149,10 @@ func (self *CatFile) GetNewBlock() error {
 
 	master := self.pool.MasterServer()
 	blockquery := &proc.BlockQueryParam{
-		Path:   self.filename,
+		Path:   self.path,
 		Offset: self.offset,
 		Length: self.conf.BlockServerConf.BlockSize,
-		Lease:  self.opLease,
+		Lease:  self.lease,
 	}
 	var resp proc.GetBlocksLocationResponse
 	err := master.GetBlockLocation(blockquery, &resp)
@@ -270,8 +301,8 @@ func (self *CatFile) SendNewBlock() error {
 
 	master := self.pool.MasterServer()
 	param := &proc.AddBlockParam{
-		Path:  self.filename,
-		Lease: self.opLease,
+		Path:  self.path,
+		Lease: self.lease,
 	}
 	var catblock proc.CatBlock
 	err := master.AddBlock(param, &catblock)
