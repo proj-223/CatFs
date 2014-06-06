@@ -11,11 +11,6 @@ import (
 	"time"
 )
 
-const (
-	DEFAULT_CHAN_SIZE = 10
-	DEFAULT_TIMEOUT   = time.Second * 30
-)
-
 type PipelineParam struct {
 	lease    *proc.CatLease
 	location proc.BlockLocation
@@ -49,6 +44,7 @@ type DataServer struct {
 	pipelineMap  map[string]*PipelineParam
 	leaseMap     map[string]*proc.CatLease
 	leaseManager *LeaseManager
+	commands     chan *proc.MasterCommand
 }
 
 // Prepare send a block to datanode
@@ -157,6 +153,7 @@ func (self *DataServer) Serve() error {
 	done := make(chan error, 1)
 
 	self.initBlockDir()
+	go self.initCommandHandler()
 	// init the rpc server
 	go self.initRPCServer(done)
 	// init the block server
