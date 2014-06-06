@@ -54,8 +54,8 @@ type BlockQueryParam struct {
 type CreateFileParam struct {
 	// The abs path of the file
 	Path string
-	// Ower of the file
-	Ower *string
+	// Owner of the file
+	Owner *string
 }
 
 const (
@@ -71,8 +71,8 @@ type GetBlocksLocationResponse struct {
 type OpenFileParam struct {
 	// The abs path of the file
 	Path string
-	// Ower of the file
-	Ower *string
+	// Owner of the file
+	Owner *string
 	// Open mode read or write
 	Mode int
 }
@@ -130,7 +130,7 @@ type DeleteParam struct {
 type MkdirParam struct {
 	// Path of the dir
 	Path string
-	// Ower of the dir
+	// Owner of the dir
 	Owner string
 }
 

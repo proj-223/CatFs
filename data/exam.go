@@ -42,8 +42,9 @@ func (self *DataServer) examServerRoutine() {
 	master := self.pool.MasterServer()
 	var resp proc.HeartbeatResponse
 	master.SendHeartbeat(heartbeat, &resp)
-	// TODO handle the response
-	// TODO TODO TODO
+	for _, command := range resp.Command {
+		self.commands <- command
+	}
 }
 
 func (self *DataServer) examBlocks() (map[string]*proc.DataBlockReport, uint64) {
