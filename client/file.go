@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrRead = errors.New("Read Error")
+	ErrRead  = errors.New("Read Error")
 	ErrWrite = errors.New("Writer Error")
 )
 
@@ -32,9 +32,9 @@ type CatFile struct {
 // any.
 func (self *CatFile) Close() error {
 	master := self.pool.MasterServer()
-	param := &proc.CloseParam {
-		Path : self.filename,
-		Lease : self.opLease,
+	param := &proc.CloseParam{
+		Path:  self.filename,
+		Lease: self.opLease,
 	}
 	var succ bool
 	err := master.Close(param, &succ)
@@ -270,14 +270,14 @@ func (self *CatFile) SendNewBlock() error {
 
 	master := self.pool.MasterServer()
 	param := &proc.AddBlockParam{
-		Path : self.filename,
-		Lease : self.opLease,
+		Path:  self.filename,
+		Lease: self.opLease,
 	}
 	var catblock proc.CatBlock
 	err := master.AddBlock(param, &catblock)
 	if err != nil {
 		return err
-	} 
+	}
 
 	err = self.WriteBlockData(&catblock)
 	if err != nil {
