@@ -23,6 +23,7 @@ type CatFile struct {
 	pool            *pool.ClientPool
 	curBlockContent []byte
 	curBlock        *proc.CatBlock
+	curChanged      bool
 	blockOff        int64
 	offset          int64
 	lock            *sync.Mutex
@@ -49,7 +50,7 @@ func (self *CatFile) Open(mode int) error {
 	self.filestatus = resp.Filestatus
 	self.lease = resp.Lease
 	self.offset = 0
-	self.blockOff = 0
+	self.blockOff = -1
 	self.isEOF = false
 	self.opened = true
 	self.lock = new(sync.Mutex)
@@ -69,7 +70,7 @@ func (self *CatFile) Create() error {
 	self.filestatus = resp.Filestatus
 	self.lease = resp.Lease
 	self.offset = 0
-	self.blockOff = 0
+	self.blockOff = -1
 	self.isEOF = false
 	self.opened = true
 	self.lock = new(sync.Mutex)
@@ -118,41 +119,38 @@ func (self *CatFile) Read(b []byte) (int, error) {
 // ReadAt reads len(b) bytes from the File starting at byte offset off. It
 // returns the number of bytes read and the error, if any. ReadAt always returns
 // a non-nil error when n < len(b). At end of file, that error is io.EOF.
-func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
+func (self *CatFile) ReadAt(b []byte, off int64) (int, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
-	n = 0
 	// blockOffset of off
 	blockOff := off / self.conf.BlockSize()
-	if len(self.curBlockContent) == 0 || (self.blockOff != blockOff) {
-		err := self.getBlock(blockOff)
-		if err != nil {
-			return 0, err
-		}
+	err := self.getBlock(blockOff)
+	if err != nil {
+		return 0, err
 	}
 
 	// offset of off in a block
 	offset := off % self.conf.BlockSize()
+	dataRead := 0
 	for {
+		n := copy(b[dataRead:], self.curBlockContent[self.offset:])
+		dataRead += n
 		// if read enough data
-		if n >= len(b) {
+		if dataRead == len(b) {
+			self.offset = int64(n)
 			break
-		}
-		// copy data
-		b[n] = self.curBlockContent[self.offset]
-		n++
-		offset++
-		if offset < (int64)(len(self.curBlockContent)) {
-			continue
 		}
 		// if it is the end of file
 		if self.isEOF {
+			self.blockOff = -1
 			self.offset = -1
 			return n, io.EOF
 		}
 		// rest offset and blockOff
 		offset = 0
 		blockOff++
+		self.offset = offset
+		self.blockOff = blockOff
 		// get next block
 		err := self.getBlock(blockOff)
 		if err != nil {
@@ -162,10 +160,15 @@ func (self *CatFile) ReadAt(b []byte, off int64) (n int, _ error) {
 	// set offset of the file
 	self.offset = offset
 	self.blockOff = blockOff
-	return n, nil
+	return dataRead, nil
 }
 
 func (self *CatFile) getBlock(blockOff int64) error {
+	// if current block offset is the one we want to get
+	if self.blockOff == blockOff {
+		return nil
+	}
+	self.Sync()
 	master := self.pool.MasterServer()
 	blockquery := &proc.BlockQueryParam{
 		Path:   self.path,
@@ -179,10 +182,10 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	if err != nil {
 		return err
 	}
-	// set EOF and curBlock info
-	self.isEOF = resp.EOF
-	self.curBlock = resp.Blocks[0]
-	self.curBlockContent = nil
+	if len(resp.Blocks) == 0 {
+		self.curBlock = nil
+		return ErrNoBlocks
+	}
 
 	// contact data server
 	location := self.curBlock.Locations[0]
@@ -199,11 +202,14 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	blockClient := self.pool.NewBlockClient(location)
 	ch := make(chan []byte)
 	go blockClient.GetBlock(ch, lease.ID)
+	var blockContent []byte
 	for data := range ch {
-		for _, value := range data {
-			self.curBlockContent = append(self.curBlockContent, value)
-		}
+		blockContent = append(blockContent, data...)
 	}
+	// set EOF and curBlock info
+	self.isEOF = resp.EOF
+	self.curBlock = resp.Blocks[0]
+	self.curBlockContent = blockContent
 	self.blockOff = blockOff
 	return nil
 }
@@ -222,6 +228,9 @@ func (self *CatFile) Seek(offset int64, whence int) (ret int64, err error) {
 // means flushing the file system's in-memory copy of recently written data to
 // disk.
 func (self *CatFile) Sync() error {
+	if !self.curChanged {
+		return nil
+	}
 	return self.writeData(self.curBlock, self.curBlockContent)
 }
 
@@ -248,80 +257,77 @@ func (self *CatFile) writeData(block *proc.CatBlock, data []byte) error {
 		log.Printf("Err sending block %s: ", err.Error())
 		return err
 	}
+	self.curChanged = true
 	return nil
 }
 
 // Write writes len(b) bytes to the File. It returns the number of bytes written
 // and an error, if any. Write returns a non-nil error when n != len(b).
-func (self *CatFile) Write(b []byte) (n int, err error) {
+func (self *CatFile) Write(b []byte) (int, error) {
 	return self.WriteAt(b, self.fileOffset())
 }
 
 // WriteAt writes len(b) bytes to the File starting at byte offset off. It
 // returns the number of bytes written and an error, if any. WriteAt returns a
 // non-nil error when n != len(b).
-func (self *CatFile) WriteAt(b []byte, off int64) (n int, err error) {
+func (self *CatFile) WriteAt(b []byte, off int64) (int, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 
-	n = 0
+	dataWrite := 0
 	// blockOffset of off
 	blockOff := off / self.conf.BlockSize()
+	// ceiling of length / blocksize
+	fileBlockNumber := (self.filestatus.Length-1)/self.conf.BlockSize() + 1
 	offset := off % self.conf.BlockSize()
 
-	if blockOff > self.filestatus.Length/self.conf.BlockSize() {
-		return self.appendBlock(b)
-	}
-
-	if blockOff != self.blockOff {
-		err = self.getBlock(blockOff)
+	for {
+		// if it is the last block or more
+		if blockOff >= fileBlockNumber-1 {
+			offset += (blockOff - fileBlockNumber + 1) * self.conf.BlockSize()
+			n, err := self.appendToLastBlock(b, offset)
+			dataWrite += n
+			// read enough or there is an err
+			if err != nil || dataWrite == len(b) {
+				return dataWrite, err
+			}
+			n, err = self.appendBlock(b[dataWrite:])
+			return n + dataWrite, err
+		}
+		// get the block of blockOff
+		err := self.getBlock(blockOff)
 		if err != nil {
-			return 0, err
+			return dataWrite, err
 		}
-	}
-
-	for n < len(b) {
-		if offset >= (int64)(len(self.curBlockContent)) {
-			if self.blockOff == self.filestatus.Length/self.conf.BlockSize() {
-				an, err := self.appendBlock(b[n:])
-				if err != nil {
-					return n + an, err
-				}
-				return n + an, nil
-			}
-
-			err = self.Sync()
-			if err != nil {
-				return n, err
-			}
-
-			self.blockOff++
-			err = self.getBlock(blockOff)
-			if err != nil {
-				return 0, err
-			}
-			offset = 0
+		n := copy(self.curBlockContent[offset:], b[dataWrite:])
+		dataWrite += n
+		// set current has changed
+		self.curChanged = true
+		if dataWrite == len(b) {
+			offset = int64(n)
+			break
 		}
-
-		self.curBlockContent[offset] = b[n]
-		n++
-		offset++
+		offset = 0
+		blockOff++
+		self.offset = 0
+		self.blockOff = blockOff
 	}
-	// set offset of the file
 	self.offset = offset
-	err = self.Sync()
-	if err != nil {
-		return n, err
-	}
-	return n, nil
+	self.blockOff = blockOff
+	return dataWrite, nil
+}
+
+func (self *CatFile) appendToLastBlock(b []byte, offset int64) (int, error) {
+	panic("to do")
 }
 
 func (self *CatFile) appendBlock(b []byte) (int, error) {
+	panic("to do")
 	n := 0
 	// get the last block
 	blockOff := self.filestatus.Length / self.conf.BlockSize()
 	err := self.getBlock(blockOff)
-	if err != nil {
+	if err != nil && err != ErrNoBlocks {
 		return n, err
 	}
 	master := self.pool.MasterServer()
@@ -330,7 +336,7 @@ func (self *CatFile) appendBlock(b []byte) (int, error) {
 			self.curBlockContent = append(self.curBlockContent, b[n])
 			n++
 		}
-		if blockOff != self.blockOff {
+		if self.curBlock == nil {
 			param := &proc.AddBlockParam{
 				Path:  self.path,
 				Lease: self.lease,

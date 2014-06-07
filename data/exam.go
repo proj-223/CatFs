@@ -13,7 +13,7 @@ const (
 )
 
 func (self *DataServer) registerDataServer() error {
-	blockDir := self.conf.BlockPath(self.index)
+	blockDir := self.blockDir()
 	var s syscall.Statfs_t
 	err := syscall.Statfs(blockDir, &s)
 	if err != nil {
@@ -21,7 +21,7 @@ func (self *DataServer) registerDataServer() error {
 	}
 	blockReports, dataSize := self.examBlocks()
 	serverStatus := &proc.DataServerStatus{
-		Location:     proc.ServerLocation(self.index),
+		Location:     self.location,
 		AvaiableSize: s.Bavail * uint64(s.Bsize),
 		TotalSize:    s.Blocks * uint64(s.Bsize),
 		DataSize:     dataSize,
@@ -52,7 +52,7 @@ func (self *DataServer) examServer(done chan<- error) {
 }
 
 func (self *DataServer) examServerRoutine() {
-	blockDir := self.conf.BlockPath(self.index)
+	blockDir := self.blockDir()
 	var s syscall.Statfs_t
 	err := syscall.Statfs(blockDir, &s)
 	if err != nil {
@@ -62,7 +62,7 @@ func (self *DataServer) examServerRoutine() {
 
 	blockReports, dataSize := self.examBlocks()
 	serverStatus := &proc.DataServerStatus{
-		Location:     proc.ServerLocation(self.index),
+		Location:     self.location,
 		AvaiableSize: s.Bavail * uint64(s.Bsize),
 		TotalSize:    s.Blocks * uint64(s.Bsize),
 		DataSize:     dataSize,
@@ -80,7 +80,7 @@ func (self *DataServer) examServerRoutine() {
 }
 
 func (self *DataServer) examBlocks() (map[string]*proc.DataBlockReport, uint64) {
-	blockDir := self.conf.BlockPath(self.index)
+	blockDir := self.blockDir()
 	var dataSize uint64
 	blockReports := make(map[string]*proc.DataBlockReport)
 	files, _ := ioutil.ReadDir(blockDir)

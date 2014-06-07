@@ -40,13 +40,13 @@ func Serve(index int) error {
 }
 
 // Create a new Master Server
-func NewDataServer(conf *config.MachineConfig, index int) *DataServer {
+func NewDataServer(conf *config.MachineConfig, location proc.ServerLocation) *DataServer {
 	leaseManager := NewLeaseManager()
 	ds := &DataServer{
 		pool:         pool.NewClientPool(conf),
 		conf:         conf,
-		index:        index,
-		blockServer:  NewBlockServer(conf.BlockServerConf, leaseManager),
+		location:     location,
+		blockServer:  NewBlockServer(location, conf, leaseManager),
 		pipelineMap:  make(map[string]*PipelineParam),
 		leaseMap:     make(map[string]*proc.CatLease),
 		leaseManager: leaseManager,

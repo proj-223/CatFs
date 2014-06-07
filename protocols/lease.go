@@ -36,12 +36,25 @@ type CatFileLease struct {
 
 func (self *CatLease) New() {
 	self.ID = uuid.New()
-	self.Renew()
+	self.Expire = time.Now().Add(LEASE_DURATION)
 }
 
-func (self *CatLease) Renew() {
-	self.Expire = time.Now()
-	self.Expire.Add(LEASE_DURATION)
+func NewFileLease(tp int) *CatFileLease {
+	var lease CatFileLease
+	lease.New(tp)
+	return &lease
+}
+
+func (self *CatFileLease) New(tp int) {
+	self.ID = uuid.New()
+	self.Type = tp
+	self.Expire = time.Now().Add(LEASE_DURATION)
+}
+
+func (self *CatFileLease) Renew(oldLease *CatFileLease) {
+	self.ID = oldLease.ID
+	self.Type = oldLease.Type
+	self.Expire = time.Now().Add(LEASE_DURATION)
 }
 
 func (self *CatLease) HasInit() bool {

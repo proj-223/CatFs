@@ -11,12 +11,8 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
-	//"log"
 )
 
-const REPLICA_COUNT = 3
-const BLOCK_SIZE = 1024
-const HEARTBEAT_INTERVAL = time.Second
 const CHANNEL_SIZE = 100
 
 type FileLease struct {
@@ -28,12 +24,6 @@ type ServerStatus struct {
 	LastUpdate time.Time
 	Status     *proc.DataServerStatus
 }
-
-//a mapping from migration destination to the blocks
-//that are to be migrated to that destination
-/*type CommandList struct {
-	CmdList []*proc.MasterCommand
-}*/
 
 type Master struct {
 	root GFSFile
@@ -55,32 +45,30 @@ type Master struct {
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
+func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.GetBlocksLocationResponse) error {
 	elements := PathToElements(query.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
 		return ErrNoSuchFile
 	}
-	start_idx := (int)(query.Offset / BLOCK_SIZE)
-	end_idx := (int)((query.Offset + query.Length) / BLOCK_SIZE)
+	start_idx := (int)(query.Offset / self.conf.BlockSize())
+	end_idx := (int)((query.Offset + query.Length) / self.conf.BlockSize())
 	block_count := len(file.Blocklist)
 	if end_idx >= block_count-1 {
 		end_idx = block_count - 1
-		blocks.EOF = true
+		resp.EOF = true
 	} else {
-		blocks.EOF = false
+		resp.EOF = false
 	}
 
-	blocks.Blocks = make([]*proc.CatBlock, 0)
 	for i := start_idx; i <= end_idx; i++ {
 		ID := file.Blocklist[i]
-		blocks.Blocks = append(blocks.Blocks, self.blockmap[ID])
+		resp.Blocks = append(resp.Blocks, self.blockmap[ID])
 	}
-
 	return nil
 }
 
-func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
+func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
 	hash := fnv.New32a()
 	hash.Write([]byte(path))
 	hash_int := hash.Sum32()
@@ -89,7 +77,7 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 	server_num := len(self.dataserver_addr)
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
-	for len(replica.Locations) < REPLICA_COUNT {
+	for len(replica.Locations) < self.conf.ReplicaCount() {
 		if i == len(self.livemap) {
 			return ErrNotEnoughAliveServer
 		}
@@ -110,7 +98,7 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 
 //delete the data blocks associated with the
 //file/directory
-func (self *Master) _clear_file(file *GFSFile) {
+func (self *Master) clearFile(file *GFSFile) {
 	//If it is a file, then just delete the data blocks
 	//Can be optimized using go routine
 	for _, blockId := range file.Blocklist {
@@ -118,12 +106,13 @@ func (self *Master) _clear_file(file *GFSFile) {
 	}
 
 	for name, child := range file.File_map {
-		self._clear_file(child)
+		self.clearFile(child)
 		delete(file.File_map, name)
 	}
 }
 
-func (self *Master) _clear_expire_lease() {
+// TODO No one use it ?
+func (self *Master) clearExpireLease() {
 	current_time := time.Now()
 	for k, v := range self.master_lease_map {
 		//Delete expired leases
@@ -137,7 +126,7 @@ func (self *Master) _clear_expire_lease() {
 	}
 }
 
-func (self *Master) _find_src_backup_server(servers []proc.ServerLocation) (proc.ServerLocation, proc.ServerLocation) {
+func (self *Master) findSrcBackupServer(servers []proc.ServerLocation) (proc.ServerLocation, proc.ServerLocation) {
 	j := servers[len(servers)-1]
 	p := 0
 	for p < len(self.livemap) {
@@ -179,7 +168,7 @@ func (self *Master) _find_src_backup_server(servers []proc.ServerLocation) (proc
 	return src, (proc.ServerLocation)(j)
 }
 
-func (self *Master) _append_command(src proc.ServerLocation, cmd *proc.MasterCommand) {
+func (self *Master) appendCommand(src proc.ServerLocation, cmd *proc.MasterCommand) {
 	_, ok := self.CommandList[src]
 	if !ok {
 		self.CommandList[src] = make(chan *proc.MasterCommand, CHANNEL_SIZE)
@@ -190,21 +179,21 @@ func (self *Master) _append_command(src proc.ServerLocation, cmd *proc.MasterCom
 	}()
 }
 
-func (self *Master) _load_command() {
+func (self *Master) loadCommand() {
 	fmt.Println("Check liveness begin")
 	current_time := time.Now()
 	for addr, v := range self.StatusList {
 		//println(addr, v.LastUpdate.String())
 		if self.livemap[addr] {
 			//if the server is down, create migration command
-			if current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL {
+			if current_time.Sub(v.LastUpdate) > self.conf.HeartBeatInterval() {
 				self.livemap[addr] = false
 				//println("begin add commands for ", addr)
 				for ID := range v.Status.BlockReports {
-					src, backup := self._find_src_backup_server(self.blockmap[ID].Locations)
+					src, backup := self.findSrcBackupServer(self.blockmap[ID].Locations)
 					//println("add command ", src, backup)
 					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
-					self._append_command(src, Cmd)
+					self.appendCommand(src, Cmd)
 				}
 			} else {
 				//else create clean command if necessary
@@ -220,7 +209,7 @@ func (self *Master) _load_command() {
 					}
 					if !isIn {
 						Cmd := &proc.MasterCommand{Command: proc.CleanCommand, Blocks: []string{ID}, DstMachine: addr}
-						self._append_command(addr, Cmd)
+						self.appendCommand(addr, Cmd)
 					}
 				}
 			}
@@ -232,16 +221,15 @@ func (self *Master) StartMonitor() {
 	monitor := func() {
 		for {
 			//fmt.Println("start monitor")
-			self._load_command()
-			time.Sleep(HEARTBEAT_INTERVAL)
+			self.loadCommand()
+			time.Sleep(self.conf.HeartBeatInterval())
 		}
 	}
 	go monitor()
 }
 
 // Create a file in a given path
-func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileResponse) error {
-	//panic("to do")
+func (self *Master) Create(param *proc.CreateFileParam, resp *proc.OpenFileResponse) error {
 	self.lockmgr.AcquireLock(param.Path)
 	elements := PathToElements(param.Path)
 	e := self.root.AddFile(elements, false)
@@ -251,35 +239,31 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 	self.lockmgr.ReleaseLock(param.Path)
 	current_time := time.Now()
 
-	fs_state := &proc.CatFileStatus{
+	resp.Filestatus = &proc.CatFileStatus{
 		Filename: elements[len(elements)-1],
 		Length:   0,
 		CTime:    current_time,
 		MTime:    current_time,
 		ATime:    current_time,
-		IsDir:    false}
-
-	lease := &proc.CatFileLease{
-		ID:     uuid.New(),
-		Type:   proc.LEASE_WRITE,
-		Expire: time.Now().Add(proc.LEASE_DURATION)}
-
-	response.Filestatus = fs_state
-	response.Lease = lease
+		IsDir:    false,
+	}
+	resp.Lease = proc.NewFileLease(proc.LEASE_WRITE)
 
 	//put the lease into the lease_map of the file
 	file, ok := self.root.GetFile(elements)
 	if !ok {
 		return ErrNoSuchFile
-	} else {
-		file.Lease_map[response.Lease.ID] = response.Lease
-		self.master_lease_map[response.Lease.ID] = &FileLease{Lease: response.Lease, File: file}
+	}
+	file.Lease_map[resp.Lease.ID] = resp.Lease
+	self.master_lease_map[resp.Lease.ID] = &FileLease{
+		Lease: resp.Lease,
+		File:  file,
 	}
 	return nil
 }
 
 // Open a file to add block
-func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileResponse) error {
+func (self *Master) Open(param *proc.OpenFileParam, resp *proc.OpenFileResponse) error {
 	//First locate the GFSFile instance
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
@@ -288,26 +272,25 @@ func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileRespo
 		return ErrNoSuchFile
 	}
 
+	// TODO time might be wrong?
 	current_time := time.Now()
-	fs_state := &proc.CatFileStatus{
+	resp.Filestatus = &proc.CatFileStatus{
 		Filename: elements[len(elements)-1],
-		Length:   0,
+		Length:   file.Length,
 		CTime:    current_time,
 		MTime:    current_time,
 		ATime:    current_time,
-		IsDir:    false}
+		IsDir:    false,
+	}
 
-	lease := &proc.CatFileLease{
-		ID:     uuid.New(),
-		Type:   proc.LEASE_WRITE,
-		Expire: time.Now().Add(proc.LEASE_DURATION)}
-
-	response.Filestatus = fs_state
-	response.Lease = lease
+	resp.Lease = proc.NewFileLease(proc.LEASE_WRITE)
 
 	//put the lease into the lease_map of the file
-	file.Lease_map[response.Lease.ID] = response.Lease
-	self.master_lease_map[response.Lease.ID] = &FileLease{Lease: response.Lease, File: file}
+	file.Lease_map[resp.Lease.ID] = resp.Lease
+	self.master_lease_map[resp.Lease.ID] = &FileLease{
+		Lease: resp.Lease,
+		File:  file,
+	}
 	return nil
 }
 
@@ -341,18 +324,24 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 	if !ok {
 		return ErrNoSuchFile
 	}
-	e := self._get_replicas(param.Path, block)
+	e := self.getReplicas(param.Path, block)
 	if e != nil {
 		return e
 	}
 	file.Blocklist = append(file.Blocklist, block.ID)
-	file.Length = file.Length + BLOCK_SIZE
+	file.Length = file.Length + self.conf.BlockSize()
 	//copy a new one from the input block
-	self.blockmap[block.ID] = &proc.CatBlock{ID: block.ID, Locations: block.Locations}
+	self.blockmap[block.ID] = &proc.CatBlock{
+		ID:        block.ID,
+		Locations: block.Locations,
+	}
 
 	//Add into block report
 	for _, loc := range block.Locations {
-		block_report := &proc.DataBlockReport{ID: block.ID, Status: proc.BLOCK_OK}
+		block_report := &proc.DataBlockReport{
+			ID:     block.ID,
+			Status: proc.BLOCK_OK,
+		}
 		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
 	}
 	return nil
@@ -412,7 +401,7 @@ func (self *Master) Delete(param *proc.DeleteParam, succ *bool) error {
 	}
 
 	//Then delete the data blocks
-	self._clear_file(file)
+	self.clearFile(file)
 	return nil
 }
 
@@ -432,7 +421,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 }
 
 // List dir, why the return value is not a list?
-func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResponse) error {
+func (self *Master) Listdir(param *proc.ListDirParam, resp *proc.ListDirResponse) error {
 	elements := PathToElements(param.Path)
 	//fmt.Println(elements, len(elements))
 	var file *GFSFile
@@ -447,15 +436,15 @@ func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResp
 		file = &self.root
 	}
 
-	response.Files = make([]*proc.CatFileStatus, 0)
-
+	resp.Files = nil
 	//var file_status_list []*proc.CatFileStatus
-	for k, v := range file.File_map {
-		file_status := new(proc.CatFileStatus)
-		file_status.Filename = k
-		file_status.Length = v.Length
-		file_status.IsDir = v.IsDir
-		response.Files = append(response.Files, file_status)
+	for name, info := range file.File_map {
+		fileStatus := &proc.CatFileStatus{
+			Filename: name,
+			Length:   info.Length,
+			IsDir:    info.IsDir,
+		}
+		resp.Files = append(resp.Files, fileStatus)
 	}
 	return nil
 }
@@ -466,7 +455,8 @@ func (self *Master) RenewLease(oldLease *proc.CatFileLease, newLease *proc.CatFi
 	if !ok {
 		panic("The lease is longer valid")
 	}
-	self.master_lease_map[oldLease.ID].Lease.Expire.Add(proc.LEASE_DURATION)
+	newLease.Renew(oldLease)
+	self.master_lease_map[oldLease.ID].Lease = newLease
 	return nil
 }
 
@@ -509,7 +499,10 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 	//fmt.Println("send heartbeat null", param.Status == nil )
 	st, ok := self.StatusList[param.Status.Location]
 	if !ok {
-		self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
+		self.StatusList[param.Status.Location] = &ServerStatus{
+			LastUpdate: time.Now(),
+			Status:     param.Status,
+		}
 		st = self.StatusList[param.Status.Location]
 	} else {
 		st.LastUpdate = time.Now()
@@ -518,7 +511,6 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 	cmdList := self.CommandList[param.Status.Location]
 
 	for flag := true; flag; {
-
 		select {
 		case Cmd := <-cmdList:
 			//println("retrieve cmd", Cmd)

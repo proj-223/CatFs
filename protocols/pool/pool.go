@@ -42,8 +42,7 @@ func (self *ClientPool) DataServer(index proc.ServerLocation) *DataRPCClient {
 
 // Get new Block Client
 func (self *ClientPool) NewBlockClient(index proc.ServerLocation) *BlockClient {
-	host := self.conf.DataServerHost(int(index))
-	client := NewBlockClient(host, self.conf.BlockServerConf)
+	client := NewBlockClient(int(index), self.conf)
 	return client
 }
 

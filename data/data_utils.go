@@ -17,8 +17,7 @@ func (self *DataServer) blockFilename(block *proc.CatBlock) string {
 }
 
 func (self *DataServer) blockFilenameFromID(blockID string) string {
-	path := self.conf.BlockPath(self.index)
-	return path + "/" + blockID
+	return self.blockDir() + "/" + blockID
 }
 
 // go routine to receive data
@@ -71,7 +70,7 @@ func (self *DataServer) readBlockFromDisk(data chan<- []byte, block *proc.CatBlo
 }
 
 func (self *DataServer) initBlockDir() error {
-	path := self.conf.BlockPath(self.index)
+	path := self.blockDir()
 	finfo, err := os.Stat(path)
 	if err == nil && finfo.IsDir() {
 		return nil
@@ -92,4 +91,8 @@ func (self *DataServer) registerLeaseListener() {
 			delete(self.leaseMap, lease.ID)
 		}
 	})
+}
+
+func (self *DataServer) blockDir() string {
+	return self.conf.BlockPath(int(self.location))
 }

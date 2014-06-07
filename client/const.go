@@ -9,6 +9,7 @@ import (
 var (
 	ErrInvalidPath  = errors.New("Invalid Path")
 	ErrInvalidParam = errors.New("Invalid Param")
+	ErrNoBlocks     = errors.New("No Blocks")
 )
 
 func NewCatClient(conf *config.MachineConfig) *CatClient {

@@ -41,14 +41,12 @@ type BlockStruct struct {
 }
 
 type BlockClient struct {
-	blockSize int64
-	addr      string
+	addr string
 }
 
-func NewBlockClient(host string, conf *config.BlockServerConfig) *BlockClient {
+func NewBlockClient(index int, conf *config.MachineConfig) *BlockClient {
 	return &BlockClient{
-		blockSize: conf.BlockSize,
-		addr:      host + ":" + conf.Port,
+		addr: conf.BlockServerAddr(index),
 	}
 }
 

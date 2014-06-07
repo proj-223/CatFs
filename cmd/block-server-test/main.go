@@ -7,7 +7,7 @@ import (
 
 func main() {
 	id := "AA33016C-B0C8-48E8-8238-5E06B9EB27D8"
-	b := data.NewBlockServer(config.DefaultBlockServerConfig, data.NewLeaseManager())
+	b := data.NewBlockServer(0, config.DefaultMachineConfig, data.NewLeaseManager())
 	c := make(chan []byte)
 	done := make(chan bool)
 	trans := data.NewReadTransaction(id, done, c)

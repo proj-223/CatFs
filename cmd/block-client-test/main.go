@@ -8,7 +8,7 @@ import (
 
 func main() {
 	id := "AA33016C-B0C8-48E8-8238-5E06B9EB27D8"
-	b := pool.NewBlockClient("localhost", config.DefaultBlockServerConfig)
+	b := pool.NewBlockClient(0, config.DefaultMachineConfig)
 	c := make(chan []byte)
 	go b.SendBlock(c, id)
 	go func() {

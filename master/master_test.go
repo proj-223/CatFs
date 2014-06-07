@@ -2,13 +2,16 @@ package master
 
 import (
 	"fmt"
-	"sync"
-	"testing"
-	//"os"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"runtime/debug"
+	"sync"
+	"testing"
 	"time"
 )
+
+const BLOCK_SIZE = 1 << 20
+const HEARTBEAT_INTERVAL = time.Second * 10
 
 func TestExample(t *testing.T) {
 	fmt.Println("Hello, World!")
@@ -36,17 +39,31 @@ func as(cond bool, t *testing.T) {
 }
 
 func createMaster() *Master {
-	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
+	myroot := &GFSFile{
+		File_map:  make(map[string]*GFSFile),
 		IsDir:     true,
 		Blocklist: make([]string, 0),
 		Lease_map: make(map[string]*proc.CatFileLease),
-		Length:    0}
+		Length:    0,
+	}
 
-	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
-	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082", "localhost:8083", "localhost:8084"}
-	server_livemap := []bool{true, true, true, true, true}
+	lockmanager := &LockManager{
+		Lockmap: make(map[string]*sync.Mutex),
+	}
+	server_addr_list := []string{
+		"localhost:8080",
+		"localhost:8081",
+		"localhost:8082",
+		"localhost:8083",
+		"localhost:8084",
+	}
+	server_livemap := []bool{
+		true, true, true, true, true,
+	}
 
-	master := &Master{root: *myroot,
+	master := &Master{
+		conf:     config.DefaultMachineConfig,
+		root:     *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
 		//mapping from LeaseID to CatFileLease and GFSFile
 		master_lease_map: make(map[string]*FileLease),
@@ -54,7 +71,8 @@ func createMaster() *Master {
 		livemap:          server_livemap,
 		lockmgr:          *lockmanager,
 		StatusList:       make(map[proc.ServerLocation]*ServerStatus),
-		CommandList:      make(map[proc.ServerLocation]chan *proc.MasterCommand)}
+		CommandList:      make(map[proc.ServerLocation]chan *proc.MasterCommand),
+	}
 
 	return master
 }
@@ -71,7 +89,8 @@ func TestBasics(t *testing.T) {
 			DataSize:     0,
 			TotalSize:    0,
 			Errors:       make([]string, 0),
-			BlockReports: make(map[string]*proc.DataBlockReport)}
+			BlockReports: make(map[string]*proc.DataBlockReport),
+		}
 
 		master.RegisterDataServer(&proc.RegisterDataParam{Status: status}, &succ)
 
