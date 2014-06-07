@@ -3,6 +3,9 @@ package master
 import (
 	"errors"
 	"github.com/proj-223/CatFs/config"
+	"sync"
+
+	proc "github.com/proj-223/CatFs/protocols"
 )
 
 const (
@@ -36,8 +39,26 @@ func ServeMaster(master *Master) error {
 
 // Create a new Master Server
 func NewMasterServer(conf *config.MachineConfig) *Master {
-	master := &Master{
-		conf: conf,
-	}
+	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
+		IsDir:     true,
+		Blocklist: make([]string, 0),
+		Lease_map: make(map[string]*proc.CatFileLease),
+		Length:    0}
+
+	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
+	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082", "localhost:8083", "localhost:8084"}
+	server_livemap := []bool{true, true, true, true, true}
+
+	master := &Master{root: *myroot,
+		blockmap: make(map[string]*proc.CatBlock),
+		//mapping from LeaseID to CatFileLease and GFSFile
+		master_lease_map: make(map[string]*FileLease),
+		dataserver_addr:  server_addr_list,
+		livemap:          server_livemap,
+		lockmgr:          *lockmanager,
+		conf:             conf,
+		StatusList:       make(map[proc.ServerLocation]*ServerStatus),
+		CommandList:      make(map[proc.ServerLocation]chan *proc.MasterCommand)}
+
 	return master
 }
