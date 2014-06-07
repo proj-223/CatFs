@@ -61,6 +61,24 @@ func createMaster() *Master {
 
 func TestBasics(t *testing.T) {
 	master := createMaster()
+	//register data servers
+	var succ bool
+	StatusList := make([]*proc.DataServerStatus, 0)
+	for i := 0; i < 5; i++ {
+		status := &proc.DataServerStatus{
+			Location:     (proc.ServerLocation)(i),
+			AvaiableSize: 0,
+			DataSize:     0,
+			TotalSize:    0,
+			Errors:       make([]string, 0),
+			BlockReports: make(map[string]*proc.DataBlockReport)}
+
+		master.RegisterDataServer(&proc.RegisterDataParam{Status: status}, &succ)
+
+		StatusList = append(StatusList, status)
+		fmt.Println(StatusList)
+		as(succ, t)
+	}
 	as(master.StatusList != nil, t)
 
 	custompath := "/helloworld.txt"
@@ -170,7 +188,7 @@ func TestMigration(t *testing.T) {
 
 	master.StartMonitor()
 	time.Sleep(HEARTBEAT_INTERVAL * 2 / 3)
-	alive_server_idx := []int{1, 2, 3, 4}
+	alive_server_idx := []int{0, 1, 2, 3}
 	heartbeat := &proc.HeartbeatParam{}
 	response := &proc.HeartbeatResponse{}
 	for i := 0; i < len(alive_server_idx); i++ {

@@ -136,12 +136,12 @@ func (self *Master) _clear_expire_lease() {
 	}
 }
 
-func (self *Master) _find_src_backup_server(servers []proc.BlockLocation) (proc.BlockLocation, proc.BlockLocation) {
+func (self *Master) _find_src_backup_server(servers []proc.ServerLocation) (proc.ServerLocation, proc.ServerLocation) {
 	j := servers[len(servers)-1]
 	p := 0
 	for p < len(self.livemap) {
 		if (int)(j) >= len(self.livemap) {
-			j = j - (proc.BlockLocation)(len(self.livemap))
+			j = j - (proc.ServerLocation)(len(self.livemap))
 		}
 
 		//it must be alive
@@ -168,7 +168,7 @@ func (self *Master) _find_src_backup_server(servers []proc.BlockLocation) (proc.
 		j++
 	}
 
-	var src proc.BlockLocation
+	var src proc.ServerLocation
 	for _, v := range servers {
 		if self.livemap[(int)(v)] {
 			src = v
@@ -185,7 +185,7 @@ func (self *Master) _append_command(src proc.ServerLocation, cmd *proc.MasterCom
 	}
 	//fmt.Println("Add command", source_loc)
 	go func() {
-		self.CommandList[src] <- Cmd
+		self.CommandList[src] <- cmd
 	}()
 }
 
@@ -193,22 +193,24 @@ func (self *Master) _load_command() {
 	fmt.Println("Check liveness begin")
 	current_time := time.Now()
 	for addr, v := range self.StatusList {
-		println(addr, v.LastUpdate.String())
+		//println(addr, v.LastUpdate.String())
 		if self.livemap[addr] {
 			//if the server is down, create migration command
 			if current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL {
 				self.livemap[addr] = false
-				for ID,_ := range v.BlockReports {
+				//println("begin add commands for ", addr)
+				for ID,_ := range v.Status.BlockReports {
 					src, backup := self._find_src_backup_server(self.blockmap[ID].Locations)
+					//println("add command ", src, backup)
 					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
 					self._append_command(src, Cmd)
 				}
 			} else {
 				//else create clean command if necessary
-				for ID,_ := range v.BlockReports {
+				for ID,_ := range v.Status.BlockReports {
 					//check whether the current server is in the three replica,
 					//if not, clean it
-					isIn = false
+					isIn := false
 					for _,loc := range self.blockmap[ID].Locations {
 						if(loc == addr) {
 							isIn = true
@@ -337,6 +339,12 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 	file.Length = file.Length + BLOCK_SIZE
 	//copy a new one from the input block
 	self.blockmap[block.ID] = &proc.CatBlock{ID: block.ID, Locations: block.Locations}
+
+	//Add into block report
+	for _, loc := range block.Locations {
+		block_report := &proc.DataBlockReport{ID: block.ID, Status: proc.BLOCK_OK}
+		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
+	}
 	return nil
 }
 
