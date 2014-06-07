@@ -46,14 +46,13 @@ func NewMasterServer(conf *config.MachineConfig) *Master {
 		Length:    0}
 
 	lockmanager := &LockManager{Lockmap: make(map[string]*sync.Mutex)}
-	server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082", "localhost:8083", "localhost:8084"}
-	server_livemap := []bool{true, true, true, true, true}
+	//server_addr_list := []string{"localhost:8080", "localhost:8081", "localhost:8082", "localhost:8083", "localhost:8084"}
+	server_livemap := make(map[proc.ServerLocation]bool)
 
 	master := &Master{root: *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
 		//mapping from LeaseID to CatFileLease and GFSFile
 		master_lease_map: make(map[string]*FileLease),
-		dataserver_addr:  server_addr_list,
 		livemap:          server_livemap,
 		lockmgr:          *lockmanager,
 		conf:             conf,
