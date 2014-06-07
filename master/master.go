@@ -34,7 +34,7 @@ type Master struct {
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
+func (self *Master) GetServerLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
 	elements := PathToElements(query.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
@@ -64,14 +64,14 @@ func (self *Master) _get_replicas(path string, replica *proc.CatBlock) error {
 	i := 0
 	server_num := len(self.livemap)
 	//fmt.Println("server_num: ",server_num)
-	replica.Locations = make([]proc.BlockLocation, 0)
+	replica.Locations = make([]proc.ServerLocation, 0)
 	for len(replica.Locations) < REPLICA_COUNT {
 		if i == len(self.livemap) {
 			return ErrNotEnoughAliveServer
 		}
-		idx := (proc.BlockLocation)((int(hash_int) + i) % server_num)
+		idx := (proc.ServerLocation)((int(hash_int) + i) % server_num)
 		if idx < 0 {
-			idx = idx + (proc.BlockLocation)(server_num)
+			idx = idx + (proc.ServerLocation)(server_num)
 		}
 		if self.livemap[idx] {
 			replica.Locations = append(replica.Locations, idx)

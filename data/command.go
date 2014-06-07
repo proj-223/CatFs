@@ -29,11 +29,11 @@ func (self *DataServer) execCleanCommand(command *proc.MasterCommand) {
 }
 
 func (self *DataServer) execMigration(command *proc.MasterCommand) {
-	location := proc.BlockLocation(command.DstMachine)
+	location := proc.ServerLocation(command.DstMachine)
 	for _, blockStr := range command.Blocks {
 		block := &proc.CatBlock{
 			ID:        blockStr,
-			Locations: []proc.BlockLocation{location},
+			Locations: []proc.ServerLocation{location},
 		}
 		go self.migrateBlock(block)
 	}
@@ -43,7 +43,7 @@ func (self *DataServer) migrateBlock(block *proc.CatBlock) {
 	prepareParam := &proc.PrepareBlockParam{
 		Block: block,
 	}
-	location := prepareParam.BlockLocation()
+	location := prepareParam.ServerLocation()
 	dataserver := self.pool.DataServer(location)
 	var lease proc.CatLease
 	err := dataserver.PrepareSendBlock(prepareParam, &lease)
