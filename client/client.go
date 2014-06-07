@@ -97,7 +97,7 @@ func (self *CatClient) Remove(name string) error {
 	// TODO
 	// if it is dir
 	// if there is content in the dir
-	return nil
+	return self.RemoveAll(name)
 }
 
 // RemoveAll removes path and any children it contains. It removes everything it
@@ -180,4 +180,9 @@ func (self *CatClient) ListDir(path string) ([]string, error) {
 		dircontent = append(dircontent, file.Filename)
 	}
 	return dircontent, nil
+}
+
+// get current dir
+func (self *CatClient) CurrentDir() string {
+	return self.curdir
 }

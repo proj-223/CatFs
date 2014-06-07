@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/proj-223/CatFs/client"
 	"os"
@@ -9,6 +10,12 @@ import (
 )
 
 const cmdHelp = `Command List:
+  rm [a]
+  mv [a] [b]
+  pwd
+  mkdir [a]
+  cd [a]
+  ls or ls [a]
   help
   exit
 `
@@ -37,9 +44,54 @@ func printError(err error) {
 }
 
 func runCmd(args []string) bool {
+	if len(args) < 1 {
+		printError(errors.New("Need command"))
+		return false
+	}
 	cmd := args[0]
 	switch cmd {
+	case "mv":
+		if len(args) <= 2 {
+			printError(errors.New("Need 2 argument"))
+			return false
+		}
+		src := args[1]
+		dst := args[2]
+		err := client.Rename(src, dst)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fmt.Println("Success")
+	case "rm":
+		if len(args) <= 1 {
+			printError(errors.New("Need argument"))
+			return false
+		}
+		path := args[1]
+		err := client.Remove(path)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fmt.Println("Success")
+	case "cd":
+		if len(args) <= 1 {
+			printError(errors.New("Need argument"))
+			return false
+		}
+		path := args[1]
+		err := client.Chdir(path)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fmt.Println("Success")
 	case "mkdir":
+		if len(args) <= 1 {
+			printError(errors.New("Need argument"))
+			return false
+		}
 		dirname := args[1]
 		err := client.Mkdir(dirname, 0)
 		if err != nil {
@@ -48,7 +100,11 @@ func runCmd(args []string) bool {
 		}
 		fmt.Println("Success")
 	case "ls":
-		files, err := client.ListDir("")
+		dirname := ""
+		if len(args) > 1 {
+			dirname = args[1]
+		}
+		files, err := client.ListDir(dirname)
 		if err != nil {
 			printError(err)
 			return false
@@ -56,6 +112,9 @@ func runCmd(args []string) bool {
 		for _, file := range files {
 			fmt.Println(file)
 		}
+	case "pwd":
+		cur := client.CurrentDir()
+		fmt.Println(cur)
 	case "exit":
 		return true
 	case "help":

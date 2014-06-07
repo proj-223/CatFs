@@ -73,3 +73,8 @@ func Rename(oldname, newname string) error {
 func ListDir(path string) ([]string, error) {
 	return DefaultCatClient.ListDir(path)
 }
+
+// get current dir
+func CurrentDir() string {
+	return DefaultCatClient.CurrentDir()
+}
