@@ -63,7 +63,7 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 		}
 		// prepare deliverChan block to next data server
 		nextBlockClient := self.pool.NewBlockClient(location)
-		deliverChan := make(chan []byte)
+		deliverChan = make(chan []byte)
 		go nextBlockClient.SendBlock(deliverChan, nextLease.ID)
 	}
 
