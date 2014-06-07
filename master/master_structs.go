@@ -71,7 +71,14 @@ func (self *GFSFile) MountFile(relativepath []string, filetomount *GFSFile) {
 	length := len(relativepath)
 	parentpath := relativepath[:length-1]
 	leaf_file := relativepath[length-1]
-	file, ok := self.GetFile(parentpath)
+	var file *GFSFile
+	ok := false
+	if(len(parentpath) >0) {
+		file, ok = self.GetFile(parentpath)
+	} else {
+		file = self
+		ok = true
+	}
 	if ok {
 		file.File_map[leaf_file] = filetomount
 	} else {
@@ -84,7 +91,12 @@ func (self *GFSFile) DeleteFile(path []string) bool {
 		return true
 	}
 	if len(path) > 1 {
-		return self.DeleteFile(path[1:])
+		file, ok := self.File_map[path[0]]
+		if(!ok) {
+			return false
+		} else {
+			return file.DeleteFile(path[1:])
+		}
 	}
 	name := path[0]
 	_, ok := self.File_map[name]

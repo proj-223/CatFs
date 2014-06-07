@@ -367,16 +367,20 @@ func (self *Master) Close(param *proc.CloseParam, succ *bool) error {
 // Rename
 func (self *Master) Rename(param *proc.RenameParam, succ *bool) error {
 	//It is basically delete then create
+	log.Println("Src: ", param.Src, " Dst: ", param.Des)
 	src_elements := PathToElements(param.Src)
 	dst_elements := PathToElements(param.Des)
 
 	file, ok := self.root.GetFile(src_elements)
+	log.Println("Try to get file: ", param.Src)
 	if !ok {
 		return ErrNoSuchFile
 	}
+	log.Println("Try to delete file: ", param.Src)
 	if !self.root.DeleteFile(src_elements) {
 		return ErrNoSuchFile
 	}
+	log.Println("Try to delete file: ", param.Src)
 	self.root.MountFile(dst_elements, file)
 	*succ = true
 	return nil
@@ -461,7 +465,17 @@ func (self *Master) RenewLease(oldLease *proc.CatFileLease, newLease *proc.CatFi
 func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) error {
 	//panic("to do")
 	elements := PathToElements(path)
-	file, ok := self.root.GetFile(elements)
+	var file *GFSFile
+	var ok bool
+	if(len(elements) > 0 ) {
+		file, ok = self.root.GetFile(elements)
+	} else {
+		//It is the root
+		filestatus.Filename = "/"
+		filestatus.Length = self.root.Length
+		filestatus.IsDir = self.root.IsDir
+		return nil
+	}
 	if !ok {
 		return ErrNoSuchFile
 	} else {
