@@ -31,11 +31,8 @@ type Master struct {
 	blockmap map[string]*proc.CatBlock
 	//mapping from LeaseID to CatFileLease and GFSFile
 	master_lease_map map[string]*FileLease
-	//the address of servers can be used, it may contain
-	//servers that are currently down
-	dataserver_addr []string
-	//the key is the address of data server
-	livemap    []bool
+	//the key is ServerLocation
+	livemap    map[proc.ServerLocation]bool
 	conf       *config.MachineConfig
 	lockmgr    LockManager
 	StatusList map[proc.ServerLocation]*ServerStatus
@@ -74,7 +71,7 @@ func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
 	hash_int := hash.Sum32()
 	//fmt.Println("hash_int: ", hash_int)
 	i := 0
-	server_num := len(self.dataserver_addr)
+	server_num := len(self.livemap)
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
 	for len(replica.Locations) < self.conf.ReplicaCount() {
@@ -160,7 +157,7 @@ func (self *Master) findSrcBackupServer(servers []proc.ServerLocation) (proc.Ser
 
 	var src proc.ServerLocation
 	for _, v := range servers {
-		if self.livemap[(int)(v)] {
+		if self.livemap[v] {
 			src = v
 			break
 		}
@@ -488,7 +485,7 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 // Register a data server
 func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
 	self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
-	self.livemap[(int)(param.Status.Location)] = true
+	self.livemap[param.Status.Location] = true
 	log.Printf("DataServer %d registered", param.Status.Location)
 	*succ = true
 	return nil
