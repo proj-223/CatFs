@@ -61,7 +61,7 @@ func (self *DataServer) migrateBlock(block *proc.CatBlock) {
 	}
 	var succ bool
 	err = dataserver.SendingBlock(sendingParam, &succ)
-	if !succ {
+	if err == nil && !succ {
 		err = ErrOperationFailed
 	}
 	if err != nil {

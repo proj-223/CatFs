@@ -12,7 +12,39 @@ const (
 	HEARTBEAT_TICK = 10 * time.Second
 )
 
-func (self *DataServer) examServer() {
+func (self *DataServer) registerDataServer() error {
+	blockDir := self.conf.BlockPath(self.index)
+	var s syscall.Statfs_t
+	err := syscall.Statfs(blockDir, &s)
+	if err != nil {
+		return err
+	}
+	blockReports, dataSize := self.examBlocks()
+	serverStatus := &proc.DataServerStatus{
+		Location:     proc.ServerLocation(self.index),
+		AvaiableSize: s.Bavail * uint64(s.Bsize),
+		TotalSize:    s.Blocks * uint64(s.Bsize),
+		DataSize:     dataSize,
+		BlockReports: blockReports,
+	}
+	registerParam := &proc.RegisterDataParam{
+		Status: serverStatus,
+	}
+	master := self.pool.MasterServer()
+	var succ bool
+	err = master.RegisterDataServer(registerParam, &succ)
+	if err == nil && !succ {
+		err = ErrOperationFailed
+	}
+	return err
+}
+
+func (self *DataServer) examServer(done chan<- error) {
+	err := self.registerDataServer()
+	if err != nil {
+		done <- err
+		return
+	}
 	c := time.Tick(HEARTBEAT_TICK)
 	for _ = range c {
 		go self.examServerRoutine()

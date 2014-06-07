@@ -153,6 +153,8 @@ func (self *DataServer) Serve() error {
 	done := make(chan error, 1)
 
 	self.initBlockDir()
+	// register, check and send heart beat
+	go self.examServer(done)
 	go self.initCommandHandler()
 	// init the rpc server
 	go self.initRPCServer(done)
@@ -160,8 +162,6 @@ func (self *DataServer) Serve() error {
 	go self.initBlockServer(done)
 	// check leases
 	go self.leaseManager.checkLease()
-	// check and send heart beat
-	go self.examServer()
 
 	err := <-done
 	return err
