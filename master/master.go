@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
+	//"log"
 )
 
 const REPLICA_COUNT = 3
@@ -404,10 +405,17 @@ func (self *Master) Delete(param *proc.DeleteParam, succ *bool) error {
 
 // Create a dir
 func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
+	log.Println("add file ", *succ)
 	elements := PathToElements(param.Path)
-	self.root.AddFile(elements, true)
-	*succ = true
-	return nil
+	e := self.root.AddFile(elements, true)
+	if(e == nil) {
+		*succ = true
+		log.Println("add file ", *succ)
+	} else {
+		*succ = false
+		log.Println("add file ", *succ)
+	}
+	return e
 }
 
 // List dir, why the return value is not a list?
@@ -433,6 +441,7 @@ func (self *Master) Listdir(param *proc.ListDirParam, response *proc.ListDirResp
 		file_status := new(proc.CatFileStatus)
 		file_status.Filename = k
 		file_status.Length = v.Length
+		file_status.IsDir = v.IsDir
 		response.Files = append(response.Files, file_status)
 	}
 	return nil
@@ -458,6 +467,7 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 	} else {
 		filestatus.Filename = elements[len(elements)-1]
 		filestatus.Length = file.Length
+		filestatus.IsDir = file.IsDir
 		return nil
 	}
 }
