@@ -163,3 +163,21 @@ func (self *CatClient) getFilestatus(name string) (*proc.CatFileStatus, error) {
 	}
 	return &filestatus, nil
 }
+
+func (self *CatClient) ListDir(path string) ([]string, error) {
+	abspath := Abs(self.curdir, path)
+	master := self.pool.MasterServer()
+	param := &proc.ListDirParam{
+		Path: abspath,
+	}
+	var resp proc.ListDirResponse
+	err := master.Listdir(param, &resp)
+	if err != nil {
+		return nil, err
+	}
+	var dircontent []string
+	for _, file := range resp.Files {
+		dircontent = append(dircontent, file.Filename)
+	}
+	return dircontent, nil
+}

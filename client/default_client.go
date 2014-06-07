@@ -68,3 +68,8 @@ func RemoveAll(path string) error {
 func Rename(oldname, newname string) error {
 	return DefaultCatClient.Rename(oldname, newname)
 }
+
+// List files in a dir
+func ListDir(path string) ([]string, error) {
+	return DefaultCatClient.ListDir(path)
+}
