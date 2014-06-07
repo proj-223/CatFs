@@ -11,11 +11,9 @@ import (
 )
 
 var (
-	ErrFileHasOpened    = errors.New("File has opened")
-	ErrFileNotOpened    = errors.New("File has not opened")
-	ErrReadSmallerSize  = errors.New("Read Error")
-	ErrWriteSmallerSize = errors.New("Read Error")
-	ErrWrite            = errors.New("Writer Error")
+	ErrFileHasOpened = errors.New("File has opened")
+	ErrFileNotOpened = errors.New("File has not opened")
+	ErrWrite         = errors.New("Writer Error")
 )
 
 type CatFile struct {
@@ -186,6 +184,7 @@ func (self *CatFile) getBlock(blockOff int64) error {
 			self.curBlockContent = append(self.curBlockContent, value)
 		}
 	}
+	self.blockOff = blockOff
 	return nil
 }
 
@@ -244,7 +243,115 @@ func (self *CatFile) Write(b []byte) (n int, err error) {
 func (self *CatFile) WriteAt(b []byte, off int64) (n int, err error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
-	return 0, nil
+
+	n = 0
+	// blockOffset of off
+	blockOff := off / self.conf.BlockSize()
+	offset := off % self.conf.BlockSize()
+
+	if blockOff > self.filestatus.Length/self.conf.BlockSize() {
+		return self.appendBlock(b)
+	}
+
+	if blockOff != self.blockOff {
+		err = self.getBlock(blockOff)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	for n < len(b) {
+		if offset >= (int64)(len(self.curBlockContent)) {
+			if self.blockOff == self.filestatus.Length/self.conf.BlockSize() {
+				an, err := self.appendBlock(b[n:])
+				if err != nil {
+					return n + an, err
+				}
+				return n + an, nil
+			}
+
+			err = self.Sync()
+			if err != nil {
+				return n, err
+			}
+
+			self.blockOff++
+			err = self.getBlock(blockOff)
+			if err != nil {
+				return 0, err
+			}
+			offset = 0
+		}
+
+		self.curBlockContent[offset] = b[n]
+		n++
+		offset++
+	}
+	// set offset of the file
+	self.offset = offset
+	err = self.Sync()
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+func (self *CatFile) appendBlock(b []byte) (int, error) {
+	n := 0
+	// get the last block
+	blockOff := self.filestatus.Length / self.conf.BlockSize()
+	err := self.getBlock(blockOff)
+	if err != nil {
+		return n, err
+	}
+	master := self.pool.MasterServer()
+	for {
+		for (int64)(len(self.curBlockContent)) < self.conf.BlockSize() && n < len(b) {
+			self.curBlockContent = append(self.curBlockContent, b[n])
+			n++
+		}
+		if blockOff != self.blockOff {
+			param := &proc.AddBlockParam{
+				Path:  self.path,
+				Lease: self.lease,
+			}
+			var block proc.CatBlock
+			err := master.AddBlock(param, &block)
+			if err != nil {
+				return n, err
+			}
+			self.curBlock = &block
+		}
+		// TODO if n == 0, don't need to sync
+		err := self.Sync()
+
+		if n >= len(b) {
+			break
+		}
+
+		if err != nil {
+			if blockOff != self.blockOff {
+				abandonparam := &proc.AbandonBlockParam{
+					Path:  self.path,
+					Block: self.curBlock,
+					Lease: self.lease,
+				}
+				var succ bool
+				err1 := master.AbandonBlock(abandonparam, &succ)
+				if err1 != nil {
+					return n, err1
+				}
+			}
+			return n, err
+		}
+		self.curBlockContent = nil
+		blockOff++
+		self.filestatus.Length += self.conf.BlockSize()
+	}
+
+	self.blockOff = blockOff
+	self.offset = int64(len(self.curBlockContent))
+	return n, nil
 }
 
 func (self *CatFile) fileOffset() int64 {
