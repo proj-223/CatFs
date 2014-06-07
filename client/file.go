@@ -51,7 +51,7 @@ func (self *CatFile) Open(mode int) error {
 	self.offset = 0
 	self.blockOff = 0
 	self.isEOF = false
-	self.opened = false
+	self.opened = true
 	self.lock = new(sync.Mutex)
 	return nil
 }
@@ -71,7 +71,7 @@ func (self *CatFile) Create() error {
 	self.offset = 0
 	self.blockOff = 0
 	self.isEOF = false
-	self.opened = false
+	self.opened = true
 	self.lock = new(sync.Mutex)
 	return nil
 }

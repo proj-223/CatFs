@@ -253,17 +253,17 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 
 	fs_state := &proc.CatFileStatus{
 		Filename: elements[len(elements)-1],
-		Length: 0,
-		CTime: current_time,
-		MTime: current_time,
-		ATime: current_time,
-		IsDir: false}
+		Length:   0,
+		CTime:    current_time,
+		MTime:    current_time,
+		ATime:    current_time,
+		IsDir:    false}
 
 	lease := &proc.CatFileLease{
-		ID: uuid.New(),
-		Type: proc.LEASE_WRITE,
+		ID:     uuid.New(),
+		Type:   proc.LEASE_WRITE,
 		Expire: time.Now().Add(proc.LEASE_DURATION)}
-	
+
 	response.Filestatus = fs_state
 	response.Lease = lease
 
@@ -291,17 +291,17 @@ func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileRespo
 	current_time := time.Now()
 	fs_state := &proc.CatFileStatus{
 		Filename: elements[len(elements)-1],
-		Length: 0,
-		CTime: current_time,
-		MTime: current_time,
-		ATime: current_time,
-		IsDir: false}
+		Length:   0,
+		CTime:    current_time,
+		MTime:    current_time,
+		ATime:    current_time,
+		IsDir:    false}
 
 	lease := &proc.CatFileLease{
-		ID: uuid.New(),
-		Type: proc.LEASE_WRITE,
+		ID:     uuid.New(),
+		Type:   proc.LEASE_WRITE,
 		Expire: time.Now().Add(proc.LEASE_DURATION)}
-	
+
 	response.Filestatus = fs_state
 	response.Lease = lease
 
@@ -476,7 +476,7 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 	elements := PathToElements(path)
 	var file *GFSFile
 	var ok bool
-	if(len(elements) > 0 ) {
+	if len(elements) > 0 {
 		file, ok = self.root.GetFile(elements)
 	} else {
 		//It is the root
