@@ -14,5 +14,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	for _, arg := range args[1:] {
+		ii, err := strconv.Atoi(arg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		go func(index int) {
+			data.Serve(index)
+		}(ii)
+	}
 	data.Serve(i)
 }
