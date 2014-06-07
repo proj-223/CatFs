@@ -78,3 +78,11 @@ func ListDir(path string) ([]string, error) {
 func CurrentDir() string {
 	return DefaultCatClient.CurrentDir()
 }
+
+func Create(name string) (*CatFile, error) {
+	return DefaultCatClient.Create(name)
+}
+
+func Open(name string, mode int) (*CatFile, error) {
+	return DefaultCatClient.Open(name, mode)
+}

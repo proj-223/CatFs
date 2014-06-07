@@ -142,6 +142,15 @@ func (self *CatClient) Open(name string, mode int) (*CatFile, error) {
 	return file, nil
 }
 
+func (self *CatClient) Create(name string) (*CatFile, error) {
+	file := self.GetFile(name)
+	err := file.Create()
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
 func (self *CatClient) GetFile(name string) *CatFile {
 	path := Abs(self.curdir, name)
 	return &CatFile{

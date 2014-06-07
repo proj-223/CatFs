@@ -408,7 +408,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 	log.Println("add file ", *succ)
 	elements := PathToElements(param.Path)
 	e := self.root.AddFile(elements, true)
-	if(e == nil) {
+	if e == nil {
 		*succ = true
 		log.Println("add file ", *succ)
 	} else {

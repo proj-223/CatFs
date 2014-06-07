@@ -10,6 +10,7 @@ import (
 )
 
 const cmdHelp = `Command List:
+  touch [a]
   rm [a]
   mv [a] [b]
   pwd
@@ -50,6 +51,23 @@ func runCmd(args []string) bool {
 	}
 	cmd := args[0]
 	switch cmd {
+	case "touch":
+		if len(args) <= 1 {
+			printError(errors.New("Need argument"))
+			return false
+		}
+		filename := args[1]
+		fi, err := client.Create(filename)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fi.Close()
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fmt.Println("success")
 	case "mv":
 		if len(args) <= 2 {
 			printError(errors.New("Need 2 argument"))
