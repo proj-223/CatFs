@@ -249,23 +249,28 @@ func (self *Master) Create(param *proc.CreateFileParam, response *proc.OpenFileR
 		return e
 	}
 	self.lockmgr.ReleaseLock(param.Path)
-	fs_state := response.Filestatus
-	fs_state.Filename = elements[len(elements)-1]
-	fs_state.Length = 0
 	current_time := time.Now()
-	fs_state.CTime = current_time
-	fs_state.MTime = current_time
-	fs_state.ATime = current_time
-	fs_state.IsDir = false
-	response.Lease.ID = uuid.New()
-	response.Lease.Type = proc.LEASE_WRITE
-	response.Lease.Expire = time.Now()
-	response.Lease.Expire.Add(proc.LEASE_DURATION)
+
+	fs_state := &proc.CatFileStatus{
+		Filename: elements[len(elements)-1],
+		Length: 0,
+		CTime: current_time,
+		MTime: current_time,
+		ATime: current_time,
+		IsDir: false}
+
+	lease := &proc.CatFileLease{
+		ID: uuid.New(),
+		Type: proc.LEASE_WRITE,
+		Expire: time.Now().Add(proc.LEASE_DURATION)}
+	
+	response.Filestatus = fs_state
+	response.Lease = lease
 
 	//put the lease into the lease_map of the file
 	file, ok := self.root.GetFile(elements)
 	if !ok {
-		return ErrNotEnoughAliveServer
+		return ErrNoSuchFile
 	} else {
 		file.Lease_map[response.Lease.ID] = response.Lease
 		self.master_lease_map[response.Lease.ID] = &FileLease{Lease: response.Lease, File: file}
@@ -283,20 +288,24 @@ func (self *Master) Open(param *proc.OpenFileParam, response *proc.OpenFileRespo
 		return ErrNoSuchFile
 	}
 
-	fs_state := response.Filestatus
-	fs_state.Filename = param.Path
-	fs_state.Length = file.Length
 	current_time := time.Now()
-	fs_state.CTime = current_time
-	fs_state.MTime = current_time
-	fs_state.ATime = current_time
-	fs_state.IsDir = false
-	response.Lease.ID = uuid.New()
-	response.Lease.Type = proc.LEASE_WRITE
-	response.Lease.Expire = time.Now()
-	response.Lease.Expire.Add(proc.LEASE_DURATION)
+	fs_state := &proc.CatFileStatus{
+		Filename: elements[len(elements)-1],
+		Length: 0,
+		CTime: current_time,
+		MTime: current_time,
+		ATime: current_time,
+		IsDir: false}
 
-	//What if the file gets deleted before this line is executed?
+	lease := &proc.CatFileLease{
+		ID: uuid.New(),
+		Type: proc.LEASE_WRITE,
+		Expire: time.Now().Add(proc.LEASE_DURATION)}
+	
+	response.Filestatus = fs_state
+	response.Lease = lease
+
+	//put the lease into the lease_map of the file
 	file.Lease_map[response.Lease.ID] = response.Lease
 	self.master_lease_map[response.Lease.ID] = &FileLease{Lease: response.Lease, File: file}
 	return nil
