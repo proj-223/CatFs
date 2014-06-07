@@ -175,7 +175,7 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	}
 	// get block meta data
 	var resp proc.GetBlocksLocationResponse
-	err := master.GetServerLocation(blockquery, &resp)
+	err := master.GetBlockLocation(blockquery, &resp)
 	if err != nil {
 		return err
 	}

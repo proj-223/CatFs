@@ -55,7 +55,7 @@ type Master struct {
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *Master) GetServerLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
+func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
 	elements := PathToElements(query.Path)
 	file, ok := self.root.GetFile(elements)
 	if !ok {
