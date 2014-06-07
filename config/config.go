@@ -5,19 +5,16 @@ import (
 	"time"
 )
 
-type BlockServerConfig struct {
-	Port string
-}
-
 type MasterConfig struct {
 	Host string
 	Port string
 }
 
 type DataServerConfig struct {
-	Host      string
-	Port      string
-	BlockPath string
+	Host            string
+	Port            string
+	BlockServerPort string
+	BlockPath       string
 }
 
 type GeneralConfig struct {
@@ -27,10 +24,9 @@ type GeneralConfig struct {
 }
 
 type MachineConfig struct {
-	master          *MasterConfig
-	dataServers     []*DataServerConfig
-	blockServerConf *BlockServerConfig
-	general         *GeneralConfig
+	master      *MasterConfig
+	dataServers []*DataServerConfig
+	general     *GeneralConfig
 }
 
 func (self *MachineConfig) MasterAddr() string {
@@ -55,7 +51,7 @@ func (self *MachineConfig) DataServerAddrs() []string {
 }
 
 func (self *MachineConfig) BlockServerAddr(index int) string {
-	return fmt.Sprintf("%s:%s", self.dataServers[index].Host, self.blockServerConf.Port)
+	return fmt.Sprintf("%s:%s", self.dataServers[index].Host, self.dataServers[index].BlockServerPort)
 }
 
 func (self *MachineConfig) BlockSize() int64 {
@@ -83,18 +79,14 @@ var (
 		Host: DefaultHost,
 		Port: "10000",
 	}
-	DefaultBlockServerConfig = &BlockServerConfig{
-		Port: "20000",
-	}
 	DefaultGeneralConfig = &GeneralConfig{
 		BlockSize:         1 << 20,
 		ReplicaCount:      3,
 		HeartBeatInterval: 10 * time.Second,
 	}
 	DefaultMachineConfig = &MachineConfig{
-		master:          DefaultMasterConfig,
-		blockServerConf: DefaultBlockServerConfig,
-		general:         DefaultGeneralConfig,
+		master:  DefaultMasterConfig,
+		general: DefaultGeneralConfig,
 		dataServers: []*DataServerConfig{
 			DefaultDataServerConfig("10001"),
 			DefaultDataServerConfig("10002"),
@@ -106,8 +98,9 @@ var (
 
 func DefaultDataServerConfig(port string) *DataServerConfig {
 	return &DataServerConfig{
-		Host:      DefaultHost,
-		Port:      port,
-		BlockPath: "/tmp/cat-fs-blocks/" + port,
+		Host:            DefaultHost,
+		Port:            port,
+		BlockServerPort: "2" + port[1:],
+		BlockPath:       "/tmp/cat-fs-blocks/" + port,
 	}
 }

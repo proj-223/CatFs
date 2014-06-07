@@ -62,7 +62,11 @@ func runCmd(args []string) bool {
 			printError(err)
 			return false
 		}
-		fi.Write([]byte(args[2]))
+		_, err = fi.Write([]byte(args[2]))
+		if err != nil {
+			printError(err)
+			return false
+		}
 		err = fi.Close()
 		if err != nil {
 			printError(err)

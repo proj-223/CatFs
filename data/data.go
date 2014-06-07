@@ -164,5 +164,6 @@ func (self *DataServer) Serve() error {
 	go self.leaseManager.checkLease()
 
 	err := <-done
+	log.Printf("Log err %s\n", err.Error())
 	return err
 }

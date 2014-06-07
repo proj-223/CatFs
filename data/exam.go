@@ -45,6 +45,7 @@ func (self *DataServer) examServer(done chan<- error) {
 		done <- err
 		return
 	}
+	log.Printf("Server Registered to master")
 	c := time.Tick(HEARTBEAT_TICK)
 	for _ = range c {
 		go self.examServerRoutine()

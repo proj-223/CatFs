@@ -487,9 +487,9 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 
 // Register a data server
 func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
-	//panic("to do")
 	self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
 	self.livemap[(int)(param.Status.Location)] = true
+	log.Printf("DataServer %d registered", param.Status.Location)
 	*succ = true
 	return nil
 }
