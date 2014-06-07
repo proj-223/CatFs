@@ -23,7 +23,7 @@ type ClientData interface {
 type ClientMaster interface {
 
 	// Get location of the block of the specified file within the specified range
-	GetServerLocation(query *BlockQueryParam, blocks *GetBlocksLocationResponse) error
+	GetBlockLocation(query *BlockQueryParam, blocks *GetBlocksLocationResponse) error
 
 	// Create a file in a given path
 	Create(param *CreateFileParam, response *OpenFileResponse) error

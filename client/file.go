@@ -56,6 +56,26 @@ func (self *CatFile) Open(mode int) error {
 	return nil
 }
 
+func (self *CatFile) Create() error {
+	master := self.pool.MasterServer()
+	param := &proc.CreateFileParam{
+		Path: self.path,
+	}
+	var resp proc.OpenFileResponse
+	err := master.Create(param, &resp)
+	if err != nil {
+		return err
+	}
+	self.filestatus = resp.Filestatus
+	self.lease = resp.Lease
+	self.offset = 0
+	self.blockOff = 0
+	self.isEOF = false
+	self.opened = false
+	self.lock = new(sync.Mutex)
+	return nil
+}
+
 // type io.Closer
 // Close closes the File, rendering it unusable for I/O. It returns an error, if
 // any.
@@ -155,7 +175,7 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	}
 	// get block meta data
 	var resp proc.GetBlocksLocationResponse
-	err := master.GetServerLocation(blockquery, &resp)
+	err := master.GetBlockLocation(blockquery, &resp)
 	if err != nil {
 		return err
 	}
