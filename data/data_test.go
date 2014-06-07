@@ -38,7 +38,7 @@ func TestData(t *testing.T) {
 	time.Sleep(time.Second)
 	block := &proc.CatBlock{
 		ID:        "111",
-		Locations: []proc.BlockLocation{0},
+		Locations: []proc.ServerLocation{0},
 	}
 	testSendBlock(block, t)
 	testGetBlock(block, t)

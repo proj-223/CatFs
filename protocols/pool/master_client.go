@@ -58,8 +58,8 @@ func (self *MasterRPCClient) Call(method string, args interface{}, reply interfa
 }
 
 // Get location of the block of the specified file within the specified range
-func (self *MasterRPCClient) GetBlockLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
-	return self.Call("GetBlockLocation", query, blocks)
+func (self *MasterRPCClient) GetServerLocation(query *proc.BlockQueryParam, blocks *proc.GetBlocksLocationResponse) error {
+	return self.Call("GetServerLocation", query, blocks)
 }
 
 // Create a file in a given path

@@ -13,7 +13,7 @@ func MasterServer() *MasterRPCClient {
 	return DefaultClientPool.MasterServer()
 }
 
-func DataServer(index proc.BlockLocation) *DataRPCClient {
+func DataServer(index proc.ServerLocation) *DataRPCClient {
 	return DefaultClientPool.DataServer(index)
 }
 
@@ -33,7 +33,7 @@ func (self *ClientPool) MasterServer() *MasterRPCClient {
 }
 
 // Get the Data Server Client
-func (self *ClientPool) DataServer(index proc.BlockLocation) *DataRPCClient {
+func (self *ClientPool) DataServer(index proc.ServerLocation) *DataRPCClient {
 	if int(index) >= len(self.dataServers) {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (self *ClientPool) DataServer(index proc.BlockLocation) *DataRPCClient {
 }
 
 // Get new Block Client
-func (self *ClientPool) NewBlockClient(index proc.BlockLocation) *BlockClient {
+func (self *ClientPool) NewBlockClient(index proc.ServerLocation) *BlockClient {
 	host := self.conf.DataServerHost(int(index))
 	client := NewBlockClient(host, self.conf.BlockServerConf)
 	return client

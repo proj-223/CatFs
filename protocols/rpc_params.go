@@ -7,7 +7,7 @@ type PrepareBlockParam struct {
 	Block *CatBlock
 }
 
-func (self *PrepareBlockParam) BlockLocation() BlockLocation {
+func (self *PrepareBlockParam) ServerLocation() ServerLocation {
 	return self.Block.Locations[0]
 }
 

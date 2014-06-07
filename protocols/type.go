@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type BlockLocation int
+type ServerLocation int
 
 // The Information of a block
 type CatBlock struct {
@@ -12,7 +12,7 @@ type CatBlock struct {
 	ID string
 	// The location of data server (Indexes)
 	// The first one is the primary
-	Locations []BlockLocation
+	Locations []ServerLocation
 }
 
 type CatFileStatus struct {
@@ -36,8 +36,6 @@ type CatFileStatus struct {
 	// u:rwx g:rwx o:rwx
 	Mode int16
 }
-
-type ServerLocation int
 
 type DataServerStatus struct {
 	Location     ServerLocation

@@ -13,7 +13,7 @@ import (
 
 type PipelineParam struct {
 	lease    *proc.CatLease
-	location proc.BlockLocation
+	location proc.ServerLocation
 }
 
 func (self *PipelineParam) HasInit() bool {
@@ -31,7 +31,7 @@ func NewPipelineParam(lease *proc.CatLease, param *proc.PrepareBlockParam) *Pipe
 		lease: lease,
 	}
 	if param != nil {
-		p.location = param.BlockLocation()
+		p.location = param.ServerLocation()
 	}
 	return p
 }
@@ -54,7 +54,7 @@ func (self *DataServer) PrepareSendBlock(param *proc.PrepareBlockParam, lease *p
 	nextParam := param.NextPipeParam()
 	if nextParam != nil {
 		// if there is another replica
-		location := nextParam.BlockLocation()
+		location := nextParam.ServerLocation()
 		nextDataServer := self.pool.DataServer(location)
 		// prepare next data server
 		err := nextDataServer.PrepareSendBlock(nextParam, &nextLease)
@@ -153,6 +153,8 @@ func (self *DataServer) Serve() error {
 	done := make(chan error, 1)
 
 	self.initBlockDir()
+	// register, check and send heart beat
+	go self.examServer(done)
 	go self.initCommandHandler()
 	// init the rpc server
 	go self.initRPCServer(done)
@@ -160,8 +162,6 @@ func (self *DataServer) Serve() error {
 	go self.initBlockServer(done)
 	// check leases
 	go self.leaseManager.checkLease()
-	// check and send heart beat
-	go self.examServer()
 
 	err := <-done
 	return err
