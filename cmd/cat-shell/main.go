@@ -51,6 +51,24 @@ func runCmd(args []string) bool {
 	}
 	cmd := args[0]
 	switch cmd {
+	case "write_new":
+		if len(args) <= 2 {
+			printError(errors.New("Need 2 argument"))
+			return false
+		}
+		filename := args[1]
+		fi, err := client.Create(filename)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fi.Write([]byte(args[2]))
+		err = fi.Close()
+		if err != nil {
+			printError(err)
+			return false
+		}
+		fmt.Println("success")
 	case "touch":
 		if len(args) <= 1 {
 			printError(errors.New("Need argument"))
@@ -62,7 +80,7 @@ func runCmd(args []string) bool {
 			printError(err)
 			return false
 		}
-		fi.Close()
+		err = fi.Close()
 		if err != nil {
 			printError(err)
 			return false
