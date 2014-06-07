@@ -199,7 +199,7 @@ func (self *Master) _load_command() {
 			if current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL {
 				self.livemap[addr] = false
 				//println("begin add commands for ", addr)
-				for ID,_ := range v.Status.BlockReports {
+				for ID := range v.Status.BlockReports {
 					src, backup := self._find_src_backup_server(self.blockmap[ID].Locations)
 					//println("add command ", src, backup)
 					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
@@ -207,17 +207,17 @@ func (self *Master) _load_command() {
 				}
 			} else {
 				//else create clean command if necessary
-				for ID,_ := range v.Status.BlockReports {
+				for ID := range v.Status.BlockReports {
 					//check whether the current server is in the three replica,
 					//if not, clean it
 					isIn := false
-					for _,loc := range self.blockmap[ID].Locations {
-						if(loc == addr) {
+					for _, loc := range self.blockmap[ID].Locations {
+						if loc == addr {
 							isIn = true
 							break
 						}
 					}
-					if(!isIn){
+					if !isIn {
 						Cmd := &proc.MasterCommand{Command: proc.CleanCommand, Blocks: []string{ID}, DstMachine: addr}
 						self._append_command(addr, Cmd)
 					}
