@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 	//"os"
+	proc "github.com/proj-223/CatFs/protocols"
 	"runtime/debug"
 	"time"
-	proc "github.com/proj-223/CatFs/protocols"
 )
 
 func TestExample(t *testing.T) {
@@ -35,7 +35,7 @@ func as(cond bool, t *testing.T) {
 	}
 }
 
-func createMaster() *Master{
+func createMaster() *Master {
 	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
 		IsDir:     true,
 		Blocklist: make([]string, 0),
@@ -54,7 +54,7 @@ func createMaster() *Master{
 		livemap:          server_livemap,
 		lockmgr:          *lockmanager,
 		StatusList:       make(map[proc.ServerLocation]*ServerStatus),
-		CommandList: make(map[proc.ServerLocation]chan *proc.MasterCommand)}
+		CommandList:      make(map[proc.ServerLocation]chan *proc.MasterCommand)}
 
 	return master
 }
@@ -73,17 +73,16 @@ func TestBasics(t *testing.T) {
 	createFileResponse := &proc.OpenFileResponse{Filestatus: &proc.CatFileStatus{}, Lease: &proc.CatFileLease{}}
 	master.Create(createFileparam, createFileResponse)
 	as(createFileResponse.Lease != nil, t)
-	as(createFileResponse.Filestatus.Length ==0, t)
+	as(createFileResponse.Filestatus.Length == 0, t)
 
 	master.Create(createPicFileparam, createFileResponse)
 	as(createFileResponse.Filestatus.Filename == "haohuan.bmp", t)
-	as(createFileResponse.Filestatus.Length ==0, t)
-
+	as(createFileResponse.Filestatus.Length == 0, t)
 
 	e := master.Create(createPicFileparam2, createFileResponse)
 	ne(e, t)
 	as(createFileResponse.Filestatus.Filename == "haohuan2.bmp", t)
-	as(createFileResponse.Filestatus.Length ==0, t)
+	as(createFileResponse.Filestatus.Length == 0, t)
 
 	//then open the file, should be no errors
 	openFileparam := &proc.OpenFileParam{Path: custompath}
@@ -97,7 +96,7 @@ func TestBasics(t *testing.T) {
 
 	//add a block to each of the three files
 	paths := []string{custompath, custompath2, custompath3}
-	for i := 0; i<3 ;i++ {
+	for i := 0; i < 3; i++ {
 		addblockparam := &proc.AddBlockParam{Path: paths[i], Lease: &proc.CatFileLease{}}
 		catblock := &proc.CatBlock{}
 		e = master.AddBlock(addblockparam, catblock)
@@ -133,13 +132,13 @@ func TestMigration(t *testing.T) {
 	//register data servers
 	var succ bool
 	StatusList := make([]*proc.DataServerStatus, 0)
-	for i :=0; i<5; i++ {
+	for i := 0; i < 5; i++ {
 		status := &proc.DataServerStatus{
-			Location: (proc.ServerLocation)(i),
+			Location:     (proc.ServerLocation)(i),
 			AvaiableSize: 0,
-			DataSize: 0,
-			TotalSize: 0,
-			Errors: make([]string, 0),
+			DataSize:     0,
+			TotalSize:    0,
+			Errors:       make([]string, 0),
 			BlockReports: make(map[string]*proc.DataBlockReport)}
 
 		master.RegisterDataServer(&proc.RegisterDataParam{Status: status}, &succ)
@@ -157,46 +156,42 @@ func TestMigration(t *testing.T) {
 	catblock := &proc.CatBlock{}
 	var pathname string
 	var e error
-	for i := 0 ; i< count ;i++ {
+	for i := 0; i < count; i++ {
 		pathname = "/file" + (string)(i) + ".txt"
 		createFileparam.Path = pathname
 		e = master.Create(createFileparam, createFileResponse)
-		as(e==nil, t)
+		as(e == nil, t)
 		addblockparam.Path = pathname
 		e = master.AddBlock(addblockparam, catblock)
 		fmt.Println(catblock.ID)
 		fmt.Println(catblock.Locations)
-		as(e==nil, t)
+		as(e == nil, t)
 	}
 
-
 	master.StartMonitor()
-	time.Sleep(HEARTBEAT_INTERVAL*2/3)
-	alive_server_idx := []int{1,2,3,4}
+	time.Sleep(HEARTBEAT_INTERVAL * 2 / 3)
+	alive_server_idx := []int{1, 2, 3, 4}
 	heartbeat := &proc.HeartbeatParam{}
 	response := &proc.HeartbeatResponse{}
-	for i:=0; i<len(alive_server_idx); i++ {
+	for i := 0; i < len(alive_server_idx); i++ {
 		loc := alive_server_idx[i]
 		heartbeat.Status = StatusList[loc]
 		master.SendHeartbeat(heartbeat, response)
 	}
-	time.Sleep(HEARTBEAT_INTERVAL*2/3)
-		
-	as(len(master.CommandList)>0, t)
-	
+	time.Sleep(HEARTBEAT_INTERVAL * 2 / 3)
+
+	as(len(master.CommandList) > 0, t)
+
 	for k, v := range master.CommandList {
 		//fmt.Println("key: ", k, v)
-		for flag := true; flag ; {
+		for flag := true; flag; {
 			select {
-				case Cmd := <- v:
-					println("retrieve cmd: copy blocks ",Cmd.Blocks[0], " from ", k, " to ", Cmd.DstMachine)
-				default: 
-					//println("No command")
-					flag= false
+			case Cmd := <-v:
+				println("retrieve cmd: copy blocks ", Cmd.Blocks[0], " from ", k, " to ", Cmd.DstMachine)
+			default:
+				//println("No command")
+				flag = false
 			}
 		}
 	}
 }
-
-
-

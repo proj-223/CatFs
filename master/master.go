@@ -2,6 +2,7 @@ package master
 
 import (
 	uuid "code.google.com/p/go-uuid/uuid"
+	"fmt"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"hash/fnv"
@@ -10,7 +11,6 @@ import (
 	"net/http"
 	"net/rpc"
 	"time"
-	"fmt"
 )
 
 const REPLICA_COUNT = 3
@@ -25,11 +25,11 @@ type FileLease struct {
 
 type ServerStatus struct {
 	LastUpdate time.Time
-	Status *proc.DataServerStatus
+	Status     *proc.DataServerStatus
 }
 
 //a mapping from migration destination to the blocks
-//that are to be migrated to that destination 
+//that are to be migrated to that destination
 /*type CommandList struct {
 	CmdList []*proc.MasterCommand
 }*/
@@ -40,13 +40,13 @@ type Master struct {
 	blockmap map[string]*proc.CatBlock
 	//mapping from LeaseID to CatFileLease and GFSFile
 	master_lease_map map[string]*FileLease
-	//the address of servers can be used, it may contain 
+	//the address of servers can be used, it may contain
 	//servers that are currently down
-	dataserver_addr  []string
+	dataserver_addr []string
 	//the key is the address of data server
-	livemap          []bool
-	conf             *config.MachineConfig
-	lockmgr          LockManager
+	livemap    []bool
+	conf       *config.MachineConfig
+	lockmgr    LockManager
 	StatusList map[proc.ServerLocation]*ServerStatus
 	//it stores for each data server the commands to
 	//be executed
@@ -136,104 +136,93 @@ func (self *Master) _clear_expire_lease() {
 	}
 }
 
+func (self *Master) _find_src_backup_server(servers []proc.BlockLocation) (proc.BlockLocation, proc.BlockLocation) {
+	j := servers[len(servers)-1]
+	p := 0
+	for p < len(self.livemap) {
+		if (int)(j) >= len(self.livemap) {
+			j = j - (proc.BlockLocation)(len(self.livemap))
+		}
+
+		//it must be alive
+		if !self.livemap[j] {
+			p++
+			j++
+			continue
+		}
+
+		//and it must not be in the
+		//set of already existing replicas
+		isIn := false
+		for _, location := range servers {
+			if (int)(location) == (int)(j) {
+				isIn = true
+				break
+			}
+		}
+
+		if !isIn {
+			break
+		}
+		p++
+		j++
+	}
+
+	var src proc.BlockLocation
+	for _, v := range servers {
+		if self.livemap[(int)(v)] {
+			src = v
+			break
+		}
+	}
+	return src, (proc.ServerLocation)(j)
+}
+
+func (self *Master) _append_command(src proc.ServerLocation, cmd *proc.MasterCommand) {
+	_, ok := self.CommandList[src]
+	if !ok {
+		self.CommandList[src] = make(chan *proc.MasterCommand, CHANNEL_SIZE)
+	}
+	//fmt.Println("Add command", source_loc)
+	go func() {
+		self.CommandList[src] <- Cmd
+	}()
+}
+
 func (self *Master) _load_command() {
 	fmt.Println("Check liveness begin")
 	current_time := time.Now()
 	for addr, v := range self.StatusList {
-		//the server is down
 		println(addr, v.LastUpdate.String())
-		if ( current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL ) {
-			self.livemap[addr] = false
-		}
-	}
-
-	//fmt.Println(self.livemap)
-	fmt.Println(len(self.blockmap))
-	for ID, block := range self.blockmap {
-		fmt.Println("ID: ",ID, " ,Location: ",block.Locations)
-		//live serverlist
-		//var down_server proc.BlockLocation
-		var down_server_idx int
-		var max_location proc.BlockLocation
-		max_location = (proc.BlockLocation)(0)
-
-		needsMigration := false
-		for i,location := range block.Locations {
-			if(!self.livemap[(int)(location)]) {
-				//down_server = location
-				down_server_idx = i
-				needsMigration = true
-			}
-			if(location > max_location) {
-				max_location = location
-			}
-		}
-
-		if(!needsMigration) {
-			continue
-		}
-
-		//fmt.Println("ID: ",ID, " ,Location: ",block.Locations)
-		//find the backup server for the down server, can I
-		//make it any faster?
-		j := max_location+1
-		p := 0
-		for p<len(self.livemap) {
-			if((int)(j) >= len(self.livemap)) {
-				j = j - (proc.BlockLocation)(len(self.livemap))
-			}
-
-			//it must be alive
-			if(!self.livemap[j]) {
-				p++
-				j++
-				continue
-			}
-
-			//and it must not be in the 
-			//set of already existing replicas
-			isIn := false
-			for _,location := range block.Locations {
-				if((int)(location) == (int)(j)) {
-					isIn = true
-					break
+		if self.livemap[addr] {
+			//if the server is down, create migration command
+			if current_time.Sub(v.LastUpdate) > HEARTBEAT_INTERVAL {
+				self.livemap[addr] = false
+				for ID,_ := range v.BlockReports {
+					src, backup := self._find_src_backup_server(self.blockmap[ID].Locations)
+					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
+					self._append_command(src, Cmd)
+				}
+			} else {
+				//else create clean command if necessary
+				for ID,_ := range v.BlockReports {
+					//check whether the current server is in the three replica,
+					//if not, clean it
+					isIn = false
+					for _,loc := range self.blockmap[ID].Locations {
+						if(loc == addr) {
+							isIn = true
+							break
+						}
+					}
+					if(!isIn){
+						Cmd := &proc.MasterCommand{Command: proc.CleanCommand, Blocks: []string{ID}, DstMachine: addr}
+						self._append_command(addr, Cmd)
+					}
 				}
 			}
-
-			if(!isIn) {
-				break
-			}
-			p++
-			j++
-			//println(p)
 		}
-
-		backup := (proc.ServerLocation)(j)
-		//println("find backup: ",backup)
-		//locate the source, i.e. the previous one 
-		//of the down server
-		t := (down_server_idx-1)
-		if( t <0) {
-			t += REPLICA_COUNT
-		}
-		//fmt.Println("Detect dead server", block.Locations[down_server_idx], " at block ", ID)
-		//fmt.Println("all replicas: ", block.Locations)
-		//create commands
-		source_loc := (proc.ServerLocation)(block.Locations[t])	
-		Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
-		_, ok := self.CommandList[source_loc]
-		if(!ok) {
-			self.CommandList[source_loc] = make(chan *proc.MasterCommand, CHANNEL_SIZE)
-		}	
-		//fmt.Println("Add command", source_loc)
-		go func() {
-			self.CommandList[source_loc] <- Cmd
-		}()
-		//fmt.Println("ID: 333",ID, " ,Location: ",block.Locations)
-
 	}
-
-
 }
 
 func (self *Master) StartMonitor() {
@@ -478,7 +467,7 @@ func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool
 func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
 	//fmt.Println("send heartbeat null", param.Status == nil )
 	st, ok := self.StatusList[param.Status.Location]
-	if(!ok) {
+	if !ok {
 		self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
 		st = self.StatusList[param.Status.Location]
 	} else {
@@ -487,15 +476,15 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 	//check whether there are commands pending to be sent
 	cmdList := self.CommandList[param.Status.Location]
 
-	for flag := true; flag ; {
+	for flag := true; flag; {
 
 		select {
-			case Cmd := <- cmdList:
-				//println("retrieve cmd", Cmd)
-				rep.Command = append(rep.Command, Cmd)
-			default: 
-				//println("no more command")
-				flag= false
+		case Cmd := <-cmdList:
+			//println("retrieve cmd", Cmd)
+			rep.Command = append(rep.Command, Cmd)
+		default:
+			//println("no more command")
+			flag = false
 		}
 	}
 
