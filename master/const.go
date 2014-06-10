@@ -14,8 +14,10 @@ const (
 
 var (
 	ErrNoSuchFile           = errors.New("No such file")
+	ErrParentDirNotExist    = errors.New("parent dir not exist")
 	ErrFileAlreadyExist     = errors.New("The file already exists")
 	ErrNotEnoughAliveServer = errors.New("Not enough alive servers")
+	ErrNotDir								= errors.New("Not a dir")
 )
 
 var (
