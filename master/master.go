@@ -17,7 +17,7 @@ const CHANNEL_SIZE = 100
 
 type FileLease struct {
 	Lease *proc.CatFileLease
-	File  *GFSFile
+	File  *CFSFile
 }
 
 type ServerStatus struct {
@@ -26,10 +26,10 @@ type ServerStatus struct {
 }
 
 type Master struct {
-	root GFSFile
+	root CFSFile
 	//mapping from blockID to block location
 	blockmap map[string]*proc.CatBlock
-	//mapping from LeaseID to CatFileLease and GFSFile
+	//mapping from LeaseID to CatFileLease and CFSFile
 	master_lease_map map[string]*FileLease
 	//the key is ServerLocation
 	livemap    map[proc.ServerLocation]bool
@@ -95,7 +95,7 @@ func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
 
 //delete the data blocks associated with the
 //file/directory
-func (self *Master) clearFile(file *GFSFile) {
+func (self *Master) clearFile(file *CFSFile) {
 	//If it is a file, then just delete the data blocks
 	//Can be optimized using go routine
 	for _, blockId := range file.Blocklist {
@@ -261,7 +261,7 @@ func (self *Master) Create(param *proc.CreateFileParam, resp *proc.OpenFileRespo
 
 // Open a file to add block
 func (self *Master) Open(param *proc.OpenFileParam, resp *proc.OpenFileResponse) error {
-	//First locate the GFSFile instance
+	//First locate the CFSFile instance
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 
@@ -421,7 +421,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 func (self *Master) Listdir(param *proc.ListDirParam, resp *proc.ListDirResponse) error {
 	elements := PathToElements(param.Path)
 	//fmt.Println(elements, len(elements))
-	var file *GFSFile
+	var file *CFSFile
 	if len(elements) > 0 {
 		var ok bool
 		file, ok = self.root.GetFile(elements)
@@ -461,7 +461,7 @@ func (self *Master) RenewLease(oldLease *proc.CatFileLease, newLease *proc.CatFi
 func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) error {
 	//panic("to do")
 	elements := PathToElements(path)
-	var file *GFSFile
+	var file *CFSFile
 	var ok bool
 	if len(elements) > 0 {
 		file, ok = self.root.GetFile(elements)

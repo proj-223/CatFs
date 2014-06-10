@@ -5,15 +5,15 @@ import (
 	proc "github.com/proj-223/CatFs/protocols"
 )
 
-type GFSFile struct {
-	File_map  map[string]*GFSFile
+type CFSFile struct {
+	File_map  map[string]*CFSFile
 	IsDir     bool
 	Blocklist []string
 	Lease_map map[string]*proc.CatFileLease
 	Length    int64
 }
 
-func (self *GFSFile) GetFile(relativepath []string) (*GFSFile, bool) {
+func (self *CFSFile) GetFile(relativepath []string) (*CFSFile, bool) {
 	firstchild, ok := self.File_map[relativepath[0]]
 	if !ok {
 		return nil, false
@@ -24,7 +24,7 @@ func (self *GFSFile) GetFile(relativepath []string) (*GFSFile, bool) {
 	}
 }
 
-func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
+func (self *CFSFile) AddFile(relativepath []string, isDirectory bool) error {
 	var isDir bool
 	if len(relativepath) > 1 {
 		isDir = true
@@ -39,10 +39,10 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 	//fmt.Println(self.File_map == nil)
 	//fmt.Println(relativepath[0])
 	firstchild, ok := self.File_map[relativepath[0]]
-	var directory *GFSFile
+	var directory *CFSFile
 	if !ok {
-		directory = new(GFSFile)
-		directory.File_map = make(map[string]*GFSFile)
+		directory = new(CFSFile)
+		directory.File_map = make(map[string]*CFSFile)
 		directory.IsDir = isDir
 		directory.Blocklist = make([]string, 0)
 		directory.Lease_map = make(map[string]*proc.CatFileLease)
@@ -67,11 +67,11 @@ func (self *GFSFile) AddFile(relativepath []string, isDirectory bool) error {
 	}
 }
 
-func (self *GFSFile) MountFile(relativepath []string, filetomount *GFSFile) {
+func (self *CFSFile) MountFile(relativepath []string, filetomount *CFSFile) {
 	length := len(relativepath)
 	parentpath := relativepath[:length-1]
 	leaf_file := relativepath[length-1]
-	var file *GFSFile
+	var file *CFSFile
 	ok := false
 	if len(parentpath) > 0 {
 		file, ok = self.GetFile(parentpath)
@@ -86,7 +86,7 @@ func (self *GFSFile) MountFile(relativepath []string, filetomount *GFSFile) {
 	}
 }
 
-func (self *GFSFile) DeleteFile(path []string) bool {
+func (self *CFSFile) DeleteFile(path []string) bool {
 	if len(path) == 0 {
 		return true
 	}
@@ -108,6 +108,6 @@ func (self *GFSFile) DeleteFile(path []string) bool {
 	}
 }
 
-func (self *GFSFile) isDirectory() bool {
+func (self *CFSFile) isDirectory() bool {
 	return self.IsDir
 }

@@ -39,7 +39,7 @@ func ServeMaster(master *Master) error {
 
 // Create a new Master Server
 func NewMasterServer(conf *config.MachineConfig) *Master {
-	myroot := &GFSFile{File_map: make(map[string]*GFSFile),
+	myroot := &CFSFile{File_map: make(map[string]*CFSFile),
 		IsDir:     true,
 		Blocklist: make([]string, 0),
 		Lease_map: make(map[string]*proc.CatFileLease),
@@ -51,7 +51,7 @@ func NewMasterServer(conf *config.MachineConfig) *Master {
 
 	master := &Master{root: *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
-		//mapping from LeaseID to CatFileLease and GFSFile
+		//mapping from LeaseID to CatFileLease and CFSFile
 		master_lease_map: make(map[string]*FileLease),
 		livemap:          server_livemap,
 		lockmgr:          *lockmanager,
