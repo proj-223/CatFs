@@ -83,3 +83,10 @@ func (self *SlaveManager) RegisterSlave(status *proc.DataServerStatus) {
 	}
 	self.slaves[slave.Location()] = slave
 }
+
+func (self *SlaveManager) UpdateSlave(status *proc.DataServerStatus) {
+	if _, ok := self.slaves[status.Location]; ok {
+		panic("to do")
+	}
+	panic("to do")
+}
