@@ -5,19 +5,20 @@ import (
 	"fmt"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"hash/fnv"
+	//"hash/fnv"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"time"
+	"sort"
 )
 
 const CHANNEL_SIZE = 100
 
 type FileLease struct {
 	Lease *proc.CatFileLease
-	File  *GFSFile
+	File  *CFSFile
 }
 
 type ServerStatus struct {
@@ -25,11 +26,27 @@ type ServerStatus struct {
 	Status     *proc.DataServerStatus
 }
 
+type ServerList struct {
+	L []*proc.DataServerStatus
+}
+
+func (s ServerList) Len() int {
+	return len(s.L)
+}
+
+func (s ServerList) Swap(i, j int)  { 
+	s.L[i], s.L[j] = s.L[j], s.L[i] 
+} 
+
+func (s ServerList) Less(i,j int) bool {
+	return s.L[i].DataSize  < s.L[j].DataSize
+}
+
 type Master struct {
-	root GFSFile
+	root CFSFile
 	//mapping from blockID to block location
 	blockmap map[string]*proc.CatBlock
-	//mapping from LeaseID to CatFileLease and GFSFile
+	//mapping from LeaseID to CatFileLease and CFSFile
 	master_lease_map map[string]*FileLease
 	//the key is ServerLocation
 	livemap    map[proc.ServerLocation]bool
@@ -49,7 +66,7 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 		return ErrNoSuchFile
 	}
 	start_idx := (int)(query.Offset / self.conf.BlockSize())
-	end_idx := (int)((query.Offset + query.Length) / self.conf.BlockSize())
+	end_idx := (int)((query.Offset + query.Length - 1) / self.conf.BlockSize())
 	block_count := len(file.Blocklist)
 	if end_idx >= block_count-1 {
 		end_idx = block_count - 1
@@ -66,27 +83,23 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 }
 
 func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
-	hash := fnv.New32a()
-	hash.Write([]byte(path))
-	hash_int := hash.Sum32()
-	//fmt.Println("hash_int: ", hash_int)
-	i := 0
-	server_num := len(self.livemap)
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
-	for len(replica.Locations) < self.conf.ReplicaCount() {
-		if i == len(self.livemap) {
-			return ErrNotEnoughAliveServer
-		}
-		idx := (proc.ServerLocation)((int(hash_int) + i) % server_num)
-		if idx < 0 {
-			idx = idx + (proc.ServerLocation)(server_num)
-		}
-		//key := self.dataserver_addr[int(idx)]
-		if self.livemap[idx] {
-			replica.Locations = append(replica.Locations, idx)
-		}
-		i++
+	
+	//Naively using sort
+	data_status_list := &ServerList{}
+	for _, v := range self.StatusList {
+		data_status := v.Status
+		data_status_list.L  = append(data_status_list.L, data_status)
+	}
+
+	if(len(data_status_list.L) < self.conf.ReplicaCount()) {
+		return ErrNotEnoughAliveServer
+	}
+
+	sort.Sort(data_status_list)
+	for _,v := range data_status_list.L[:self.conf.ReplicaCount()] {
+		replica.Locations = append(replica.Locations, v.Location)
 	}
 
 	replica.ID = uuid.New()
@@ -95,7 +108,7 @@ func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
 
 //delete the data blocks associated with the
 //file/directory
-func (self *Master) clearFile(file *GFSFile) {
+func (self *Master) clearFile(file *CFSFile) {
 	//If it is a file, then just delete the data blocks
 	//Can be optimized using go routine
 	for _, blockId := range file.Blocklist {
@@ -261,7 +274,7 @@ func (self *Master) Create(param *proc.CreateFileParam, resp *proc.OpenFileRespo
 
 // Open a file to add block
 func (self *Master) Open(param *proc.OpenFileParam, resp *proc.OpenFileResponse) error {
-	//First locate the GFSFile instance
+	//First locate the CFSFile instance
 	elements := PathToElements(param.Path)
 	file, ok := self.root.GetFile(elements)
 
@@ -340,6 +353,7 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 			Status: proc.BLOCK_OK,
 		}
 		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
+		self.StatusList[loc].Status.DataSize = self.StatusList[loc].Status.DataSize + (uint64)(self.conf.BlockSize()) ;
 	}
 	return nil
 }
@@ -421,7 +435,7 @@ func (self *Master) Mkdirs(param *proc.MkdirParam, succ *bool) error {
 func (self *Master) Listdir(param *proc.ListDirParam, resp *proc.ListDirResponse) error {
 	elements := PathToElements(param.Path)
 	//fmt.Println(elements, len(elements))
-	var file *GFSFile
+	var file *CFSFile
 	if len(elements) > 0 {
 		var ok bool
 		file, ok = self.root.GetFile(elements)
@@ -461,7 +475,7 @@ func (self *Master) RenewLease(oldLease *proc.CatFileLease, newLease *proc.CatFi
 func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) error {
 	//panic("to do")
 	elements := PathToElements(path)
-	var file *GFSFile
+	var file *CFSFile
 	var ok bool
 	if len(elements) > 0 {
 		file, ok = self.root.GetFile(elements)
