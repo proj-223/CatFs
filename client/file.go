@@ -144,7 +144,7 @@ func (self *CatFile) ReadAt(b []byte, off int64) (int, error) {
 		// if it is the end of file
 		if self.isEOF {
 			self.setFileOffset(blockOff, int64(len(self.curBlockContent)))
-			return n, io.EOF
+			return dataRead, io.EOF
 		}
 		// rest offset and blockOff
 		offset = 0
