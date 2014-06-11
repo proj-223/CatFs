@@ -17,7 +17,9 @@ var (
 	ErrParentDirNotExist    = errors.New("parent dir not exist")
 	ErrFileAlreadyExist     = errors.New("The file already exists")
 	ErrNotEnoughAliveServer = errors.New("Not enough alive servers")
-	ErrNotDir								= errors.New("Not a dir")
+	ErrNotDir               = errors.New("Not a dir")
+	ErrIsRoot               = errors.New("Is Root")
+	ErrUnKnownFileType      = errors.New("Unknown file type")
 )
 
 var (

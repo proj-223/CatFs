@@ -51,19 +51,20 @@ func (self *CatFileSystem) Rename(src, dst string) error {
 		return err
 	}
 	dstdirname, filename := path.Split(dst)
-	dstfidir, err := self.GetFile(dstdirname)
-	if err != nil{
+	dstParentFi, err := self.GetFile(dstdirname)
+	if err != nil {
 		return err
 	}
-	if dstfidir == nil {
-		return ErrParentDirNotExist
+	dstParentDir, ok := dstParentFi.(DFSDir)
+	if !ok {
+		return ErrNotDir
 	}
 	dstfi, err := self.GetFile(filename)
 	if err == ErrNoSuchFile {
-		return srcfi.RenameTo(dstfidir, filename)
+		return srcfi.RenameTo(dstParentDir, filename)
 	}
-	if dstfi.IsDir() {
-		return srcfi.RenameTo(dstfi, srcfi.Filename())
+	if dstDir, ok := dstfi.(DFSDir); ok {
+		return srcfi.RenameTo(dstDir, srcfi.Filename())
 	}
 	return ErrFileAlreadyExist
 }
@@ -89,8 +90,8 @@ func (self *CatFileSystem) IsExist(abspath string) bool {
 }
 
 func NewCatFileSystem() *CatFileSystem {
-	fs := &CatFileSystem {
-		root: RootDir(),
+	fs := &CatFileSystem{
+		root: rootDir,
 	}
 	return fs
 }
