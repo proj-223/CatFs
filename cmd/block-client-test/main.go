@@ -14,6 +14,7 @@ func main() {
 	go func() {
 		c <- []byte("fuck fuck fuck fuck fuck fuck")
 		close(c)
+		println("send end")
 	}()
 	// go b.GetBlock(c, id)
 	/*

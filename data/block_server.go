@@ -6,6 +6,7 @@ import (
 	"github.com/proj-223/CatFs/protocols/pool"
 	"log"
 	"net"
+	"io"
 )
 
 const (
@@ -136,18 +137,20 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 	// anyway, close the connection
 	defer conn.Close()
 	// make the transaction done
-	buf := make([]byte, pool.BLOCK_BUFFER_SIZE)
+	// ack
+	_, err := conn.Write(pool.RESPONSE_PELEASE_SEND)
+	if err != nil {
+		// Log the error and return
+		log.Printf("Error write: %s\n", err.Error())
+		self.redirect(transID, nil)
+		return
+	}
+	buf := make([]byte, pool.BLOCK_BUFFER_SIZE_PACED)
 	for {
-		// ack
-		_, err := conn.Write(pool.RESPONSE_PELEASE_SEND)
-		if err != nil {
-			// Log the error and return
-			log.Printf("Error write: %s\n", err.Error())
-			self.redirect(transID, nil)
-			return
-		}
-
 		n, err := conn.Read(buf)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			// Log the error
 			log.Printf("Error read: %s\n", err.Error())
@@ -156,18 +159,7 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 			self.redirect(transID, nil)
 			return
 		}
-		var bs pool.BlockStruct
-		err = pool.FromBytes(buf[:n], &bs)
-		if err != nil {
-			// Log the error the return
-			log.Println(err.Error())
-			self.redirect(transID, nil)
-			return
-		}
-		if bs.Finished {
-			break
-		}
-		self.redirect(transID, bs.Data)
+		self.redirect(transID, buf[:n])
 	}
 }
 

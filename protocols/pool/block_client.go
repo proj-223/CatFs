@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	BLOCK_BUFFER_SIZE_PACED  = 1 << 11
 	BLOCK_BUFFER_SIZE  = 1 << 10
 	BLOCK_REQUEST_SIZE = 100
 	BLOCK_SEND_SIZE    = 1 << 9
@@ -71,6 +72,7 @@ func (self *BlockClient) SendBlock(c chan []byte, transID string) {
 		close(c)
 		return
 	}
+	defer conn.Close()
 
 	requestBytes := ToBytes(&BlockRequest{
 		TransID:     transID,
@@ -85,34 +87,23 @@ func (self *BlockClient) SendBlock(c chan []byte, transID string) {
 		return
 	}
 	buf := make([]byte, BLOCK_REQUEST_SIZE)
+	// get the ack from server
+	_, err = conn.Read(buf)
+	if err != nil {
+		log.Printf("Error read: %s\n", err.Error())
+		close(c)
+		return
+	}
 	for {
-		// get the ack from server
-		_, err := conn.Read(buf)
-		if err != nil {
-			log.Printf("Error read: %s\n", err.Error())
-			close(c)
-			return
-		}
 		b, ok := <-c
 		if !ok {
-			// sender closed the channel
 			// it is done
-			buf := ToBytes(&BlockStruct{
-				Finished: true,
-			})
-			_, err = conn.Write(buf)
 			break
 		}
-		// write another
-		buf := ToBytes(&BlockStruct{
-			Finished: false,
-			Data:     b,
-		})
-		_, err = conn.Write(buf)
+		_, err = conn.Write(b)
 		if err != nil {
 			// if there is an error, close channel
 			log.Println(err.Error())
-			close(c)
 			return
 		}
 	}
@@ -136,7 +127,7 @@ func (self *BlockClient) GetBlock(c chan []byte, transID string) {
 	})
 	_, err = conn.Write(requestBytes)
 
-	buf := make([]byte, BLOCK_BUFFER_SIZE)
+	buf := make([]byte, BLOCK_BUFFER_SIZE_PACED)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
