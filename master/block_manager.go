@@ -24,6 +24,10 @@ func (self *Block) ID() string {
 	return self.block.ID
 }
 
+func (self *Block) Locations() []proc.ServerLocation {
+	return self.block.Locations
+}
+
 type BlockManager struct {
 	// key: id, value: block
 	blocks map[string]*Block
