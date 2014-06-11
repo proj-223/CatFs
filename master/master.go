@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"hash/fnv"
+	//"hash/fnv"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
 	"time"
+	"sort"
 )
 
 const CHANNEL_SIZE = 100
@@ -23,6 +24,22 @@ type FileLease struct {
 type ServerStatus struct {
 	LastUpdate time.Time
 	Status     *proc.DataServerStatus
+}
+
+type ServerList struct {
+	L []*proc.DataServerStatus
+}
+
+func (s ServerList) Len() int {
+	return len(s.L)
+}
+
+func (s ServerList) Swap(i, j int)  { 
+	s.L[i], s.L[j] = s.L[j], s.L[i] 
+} 
+
+func (s ServerList) Less(i,j int) bool {
+	return s.L[i].DataSize  < s.L[j].DataSize
 }
 
 type Master struct {
@@ -66,27 +83,23 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 }
 
 func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
-	hash := fnv.New32a()
-	hash.Write([]byte(path))
-	hash_int := hash.Sum32()
-	//fmt.Println("hash_int: ", hash_int)
-	i := 0
-	server_num := len(self.livemap)
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
-	for len(replica.Locations) < self.conf.ReplicaCount() {
-		if i == len(self.livemap) {
-			return ErrNotEnoughAliveServer
-		}
-		idx := (proc.ServerLocation)((int(hash_int) + i) % server_num)
-		if idx < 0 {
-			idx = idx + (proc.ServerLocation)(server_num)
-		}
-		//key := self.dataserver_addr[int(idx)]
-		if self.livemap[idx] {
-			replica.Locations = append(replica.Locations, idx)
-		}
-		i++
+	
+	//Naively using sort
+	data_status_list := &ServerList{}
+	for _, v := range self.StatusList {
+		data_status := v.Status
+		data_status_list.L  = append(data_status_list.L, data_status)
+	}
+
+	if(len(data_status_list.L) < self.conf.ReplicaCount()) {
+		return ErrNotEnoughAliveServer
+	}
+
+	sort.Sort(data_status_list)
+	for _,v := range data_status_list.L[:self.conf.ReplicaCount()] {
+		replica.Locations = append(replica.Locations, v.Location)
 	}
 
 	replica.ID = uuid.New()
@@ -340,6 +353,7 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 			Status: proc.BLOCK_OK,
 		}
 		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
+		self.StatusList[loc].Status.DataSize = self.StatusList[loc].Status.DataSize + (uint64)(self.conf.BlockSize()) ;
 	}
 	return nil
 }
