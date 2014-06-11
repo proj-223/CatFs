@@ -95,8 +95,6 @@ func (self *BlockServer) FinishTransaction(leaseID string) {
 		for _, c := range tran.receivers {
 			go closeByteChan(c)
 		}
-		// delete the transaction from map
-		delete(self.transactions, leaseID)
 	}
 }
 

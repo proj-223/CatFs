@@ -188,11 +188,11 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	}
 
 	// contact data server
-	location := self.curBlock.Locations[0]
+	location := resp.Blocks[0].Locations[0]
 	dataServer := self.pool.DataServer(location)
 	var lease proc.CatLease
 	param := &proc.GetBlockParam{
-		Block: self.curBlock,
+		Block: resp.Blocks[0],
 	}
 	err = dataServer.GetBlock(param, &lease)
 	if err != nil {

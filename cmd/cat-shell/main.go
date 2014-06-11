@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/proj-223/CatFs/client"
+	proc "github.com/proj-223/CatFs/protocols"
+	"io"
 	"os"
 	"strings"
 )
@@ -51,6 +53,24 @@ func runCmd(args []string) bool {
 	}
 	cmd := args[0]
 	switch cmd {
+	case "cat":
+		if len(args) <= 1 {
+			printError(errors.New("Need argument"))
+			return false
+		}
+		filename := args[1]
+		fi, err := client.Open(filename, proc.OPEN_MODE_READ)
+		if err != nil {
+			printError(err)
+			return false
+		}
+		buf := make([]byte, 100)
+		n, err := fi.Read(buf)
+		if err != nil && err != io.EOF {
+			printError(err)
+			return false
+		}
+		println(string(buf[:n]))
 	case "write_new":
 		if len(args) <= 2 {
 			printError(errors.New("Need 2 argument"))
