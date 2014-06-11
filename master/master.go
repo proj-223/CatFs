@@ -49,7 +49,7 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 		return ErrNoSuchFile
 	}
 	start_idx := (int)(query.Offset / self.conf.BlockSize())
-	end_idx := (int)((query.Offset + query.Length) / self.conf.BlockSize())
+	end_idx := (int)((query.Offset + query.Length - 1) / self.conf.BlockSize())
 	block_count := len(file.Blocklist)
 	if end_idx >= block_count-1 {
 		end_idx = block_count - 1
