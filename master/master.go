@@ -204,6 +204,15 @@ func (self *Master) loadCommand() {
 					//println("add command ", src, backup)
 					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
 					self.appendCommand(src, Cmd)
+					//also modify block location
+					old_idx := 0
+					for i, loc := range self.blockmap[ID].Locations {
+						if(loc == addr) {
+							old_idx = i
+							break
+						}
+					}
+					self.blockmap[ID].Locations[old_idx] = backup
 				}
 			} else {
 				//else create clean command if necessary
@@ -212,6 +221,7 @@ func (self *Master) loadCommand() {
 					//if not, clean it
 					isIn := false
 					for _, loc := range self.blockmap[ID].Locations {
+						println("block ", ID, " location: ",self.blockmap[ID].Locations[0], self.blockmap[ID].Locations[1], self.blockmap[ID].Locations[2])
 						if loc == addr {
 							isIn = true
 							break
@@ -228,11 +238,12 @@ func (self *Master) loadCommand() {
 }
 
 func (self *Master) StartMonitor() {
+	println("Start monitoring")
 	monitor := func() {
 		for {
 			//fmt.Println("start monitor")
 			self.loadCommand()
-			time.Sleep(self.conf.HeartBeatInterval())
+			time.Sleep((time.Duration)(3*self.conf.HeartBeatInterval()/2))
 		}
 	}
 	go monitor()
@@ -524,7 +535,12 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 	for flag := true; flag; {
 		select {
 		case Cmd := <-cmdList:
-			//println("retrieve cmd", Cmd)
+			k := param.Status.Location
+			if(Cmd.Command == proc.MigrationCommand) {
+				println("send cmd: copy blocks ", Cmd.Blocks[0], " from ", k, " to ", Cmd.DstMachine)
+			} else if (Cmd.Command == proc.CleanCommand) {
+				println("send cmd: clean block ", Cmd.Blocks[0], "on server ", k)
+			}
 			rep.Command = append(rep.Command, Cmd)
 		default:
 			//println("no more command")

@@ -32,6 +32,7 @@ func ServeMaster(master *Master) error {
 
 	// init the rpc server
 	go master.initRPCServer(done)
+	master.StartMonitor()
 
 	err := <-done
 	return err
