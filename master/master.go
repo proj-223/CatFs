@@ -544,7 +544,7 @@ func (self *Master) BlockReport(param *proc.BlockReportParam, rep *proc.BlockRep
 func (self *Master) initRPCServer(done chan error) {
 	server := rpc.NewServer()
 	server.Register(proc.MasterProtocol(self))
-	l, err := net.Listen("tcp", self.conf.MasterAddr())
+	l, err := net.Listen("tcp", ":"+self.conf.MasterPort())
 	if err != nil {
 		done <- err
 		return

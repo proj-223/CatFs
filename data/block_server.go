@@ -44,7 +44,7 @@ func NewProviderTransaction(leaseID string, provider <-chan []byte) *Transaction
 type BlockServer struct {
 	transactions map[string]*Transaction
 	conf         *config.MachineConfig
-	addr         string
+	port         string
 	location     proc.ServerLocation
 	leaseManager *LeaseManager
 }
@@ -52,11 +52,11 @@ type BlockServer struct {
 // Start by DataNode
 // It will start an go routine waiting for block request
 func (self *BlockServer) Serve() error {
-	listener, err := net.Listen("tcp", self.addr)
+	listener, err := net.Listen("tcp", ":"+self.port)
 	if err != nil {
 		return err
 	}
-	log.Printf(Block_Server_START_MSG, self.addr)
+	log.Printf(Block_Server_START_MSG, self.port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -193,12 +193,12 @@ func (self *BlockServer) registerLeaseListener() {
 }
 
 func NewBlockServer(location proc.ServerLocation, conf *config.MachineConfig, leaseManager *LeaseManager) *BlockServer {
-	addr := conf.BlockServerAddr(int(location))
+	port := conf.BlockServerPort(int(location))
 	bs := &BlockServer{
 		conf:         conf,
 		transactions: make(map[string]*Transaction),
 		leaseManager: leaseManager,
-		addr:         addr,
+		port:         port,
 		location:     location,
 	}
 	bs.registerLeaseListener()

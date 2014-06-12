@@ -29,6 +29,18 @@ type MachineConfig struct {
 	general     *GeneralConfig
 }
 
+func (self *MachineConfig) MasterPort() string {
+	return self.master.Port
+}
+
+func (self *MachineConfig) DataServerPort(index int) string {
+	return self.dataServers[index].Port
+}
+
+func (self *MachineConfig) BlockServerPort(index int) string {
+	return self.dataServers[index].BlockServerPort
+}
+
 func (self *MachineConfig) MasterAddr() string {
 	return fmt.Sprintf("%s:%s", self.master.Host, self.master.Port)
 }

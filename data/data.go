@@ -130,11 +130,15 @@ func (self *DataServer) addr() string {
 	return self.conf.DataServerAddr(int(self.location))
 }
 
+func (self *DataServer) port() string {
+	return self.conf.DataServerPort(int(self.location))
+}
+
 // go routine to init the data rpc server
 func (self *DataServer) initRPCServer(done chan error) {
 	server := rpc.NewServer()
 	server.Register(proc.DataProtocol(self))
-	l, err := net.Listen("tcp", self.addr())
+	l, err := net.Listen("tcp", ":"+self.port())
 	if err != nil {
 		done <- err
 		return
