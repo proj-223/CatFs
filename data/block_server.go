@@ -4,9 +4,9 @@ import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
+	"io"
 	"log"
 	"net"
-	"io"
 )
 
 const (
@@ -166,32 +166,17 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 	// anyway, finish transaction
 	defer self.FinishTransaction(transID)
-	reqBuf := make([]byte, pool.BLOCK_REQUEST_SIZE)
+	defer conn.Close()
 	for {
 		data, ok := <-self.transactions[transID].provider
 		if !ok {
-			// finished
-			buf := pool.ToBytes(&pool.BlockStruct{
-				Finished: true,
-			})
-			conn.Write(buf)
 			return
 		}
-		buf := pool.ToBytes(&pool.BlockStruct{
-			Finished: false,
-			Data:     data,
-		})
 		// write to client
-		_, err := conn.Write(buf)
+		_, err := conn.Write(data)
 		if err != nil {
 			// if there is an error
 			log.Println(err.Error())
-			return
-		}
-		// get the ack from client
-		_, err = conn.Read(reqBuf)
-		if err != nil {
-			log.Printf("Error read: %s\n", err.Error())
 			return
 		}
 	}

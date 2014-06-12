@@ -128,7 +128,7 @@ func TestBasics(t *testing.T) {
 		catblock := &proc.CatBlock{}
 		e = master.AddBlock(addblockparam, catblock)
 		ne(e, t)
-		println("Add block to file: ", paths[i], ", block location: ",catblock.Locations[0],catblock.Locations[1],catblock.Locations[2])
+		println("Add block to file: ", paths[i], ", block location: ", catblock.Locations[0], catblock.Locations[1], catblock.Locations[2])
 		as(len(catblock.ID) > 0 && catblock.Locations != nil, t)
 		/*e = master.AddBlock(addblockparam, catblock)
 		ne(e, t)

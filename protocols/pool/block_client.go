@@ -3,16 +3,17 @@ package pool
 import (
 	"errors"
 	"github.com/proj-223/CatFs/config"
+	"io"
 	"log"
 	"net"
 )
 
 const (
-	BLOCK_BUFFER_SIZE_PACED  = 1 << 11
-	BLOCK_BUFFER_SIZE  = 1 << 10
-	BLOCK_REQUEST_SIZE = 100
-	BLOCK_SEND_SIZE    = 1 << 9
-	DEFAULT_CHAN_SIZE  = 10
+	BLOCK_BUFFER_SIZE_PACED = 1 << 11
+	BLOCK_BUFFER_SIZE       = 1 << 10
+	BLOCK_REQUEST_SIZE      = 100
+	BLOCK_SEND_SIZE         = 1 << 9
+	DEFAULT_CHAN_SIZE       = 10
 )
 
 const (
@@ -34,11 +35,6 @@ var (
 type BlockRequest struct {
 	TransID     string // It is a UUID
 	RequestType byte   // It is an int
-}
-
-type BlockStruct struct {
-	Finished bool
-	Data     []byte
 }
 
 type BlockClient struct {
@@ -130,6 +126,9 @@ func (self *BlockClient) GetBlock(c chan []byte, transID string) {
 	buf := make([]byte, BLOCK_BUFFER_SIZE_PACED)
 	for {
 		n, err := conn.Read(buf)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			// Log the error
 			log.Printf("Error read: %s\n", err.Error())
@@ -137,27 +136,8 @@ func (self *BlockClient) GetBlock(c chan []byte, transID string) {
 			c <- nil
 			return
 		}
-		var bs BlockStruct
-		err = FromBytes(buf[:n], &bs)
-		if err != nil {
-			// Log the error the return
-			log.Println(err.Error())
-			c <- nil
-			return
-		}
-		if bs.Finished {
-			break
-		}
 		// TODO Question potential racing condition
 		// Make the chan limited to 1
-		c <- bs.Data
-		// ack
-		_, err = conn.Write(RESPONSE_PELEASE_SEND)
-		if err != nil {
-			// Log the error and return
-			log.Printf("Error write: %s\n", err.Error())
-			c <- nil
-			return
-		}
+		c <- buf[:n]
 	}
 }

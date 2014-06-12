@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/proj-223/CatFs/client"
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/proj-223/CatFs/client"
 	"time"
 )
 
@@ -13,8 +13,8 @@ func bandWidthBench(args []string) {
 		printError(err)
 		return
 	}
-	for i := 0; i < 100 * (1 << 10); i++ {
-		buf := make([]byte, 1 << 10)
+	for i := 0; i < 100*(1<<10); i++ {
+		buf := make([]byte, 1<<10)
 		_, err := fi.Write(buf)
 		if err != nil {
 			printError(err)

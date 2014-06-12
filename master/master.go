@@ -10,8 +10,8 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"time"
 	"sort"
+	"time"
 )
 
 const CHANNEL_SIZE = 100
@@ -34,12 +34,12 @@ func (s ServerList) Len() int {
 	return len(s.L)
 }
 
-func (s ServerList) Swap(i, j int)  { 
-	s.L[i], s.L[j] = s.L[j], s.L[i] 
-} 
+func (s ServerList) Swap(i, j int) {
+	s.L[i], s.L[j] = s.L[j], s.L[i]
+}
 
-func (s ServerList) Less(i,j int) bool {
-	return s.L[i].DataSize  < s.L[j].DataSize
+func (s ServerList) Less(i, j int) bool {
+	return s.L[i].DataSize < s.L[j].DataSize
 }
 
 type Master struct {
@@ -85,20 +85,20 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
-	
+
 	//Naively using sort
 	data_status_list := &ServerList{}
 	for _, v := range self.StatusList {
 		data_status := v.Status
-		data_status_list.L  = append(data_status_list.L, data_status)
+		data_status_list.L = append(data_status_list.L, data_status)
 	}
 
-	if(len(data_status_list.L) < self.conf.ReplicaCount()) {
+	if len(data_status_list.L) < self.conf.ReplicaCount() {
 		return ErrNotEnoughAliveServer
 	}
 
 	sort.Sort(data_status_list)
-	for _,v := range data_status_list.L[:self.conf.ReplicaCount()] {
+	for _, v := range data_status_list.L[:self.conf.ReplicaCount()] {
 		replica.Locations = append(replica.Locations, v.Location)
 	}
 
@@ -353,7 +353,7 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 			Status: proc.BLOCK_OK,
 		}
 		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
-		self.StatusList[loc].Status.DataSize = self.StatusList[loc].Status.DataSize + (uint64)(self.conf.BlockSize()) ;
+		self.StatusList[loc].Status.DataSize = self.StatusList[loc].Status.DataSize + (uint64)(self.conf.BlockSize())
 	}
 	return nil
 }
