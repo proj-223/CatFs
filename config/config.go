@@ -102,7 +102,7 @@ var (
 		dataServers: []*DataServerConfig{
 			DefaultDataServerConfig("54.201.113.175"),
 			DefaultDataServerConfig("54.186.170.174"),
-			DefaultDataServerConfig("54.186.112.183"),
+			DefaultDataServerConfig("54.213.161.204"),
 		},
 	}
 )
