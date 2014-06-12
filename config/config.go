@@ -88,7 +88,7 @@ const (
 
 var (
 	DefaultMasterConfig = &MasterConfig{
-		Host: DefaultHost,
+		Host: "54.186.112.183",
 		Port: "10000",
 	}
 	DefaultGeneralConfig = &GeneralConfig{
@@ -100,19 +100,18 @@ var (
 		master:  DefaultMasterConfig,
 		general: DefaultGeneralConfig,
 		dataServers: []*DataServerConfig{
-			DefaultDataServerConfig("10001"),
-			DefaultDataServerConfig("10002"),
-			DefaultDataServerConfig("10003"),
-			DefaultDataServerConfig("10004"),
+			DefaultDataServerConfig("54.201.113.175"),
+			DefaultDataServerConfig("54.186.170.174"),
+			DefaultDataServerConfig("54.186.112.183"),
 		},
 	}
 )
 
-func DefaultDataServerConfig(port string) *DataServerConfig {
+func DefaultDataServerConfig(host string) *DataServerConfig {
 	return &DataServerConfig{
-		Host:            DefaultHost,
-		Port:            port,
-		BlockServerPort: "2" + port[1:],
-		BlockPath:       "/tmp/cat-fs-blocks/" + port,
+		Host:            host,
+		Port:            "10001",
+		BlockServerPort: "20000",
+		BlockPath:       "/tmp/cat-fs-blocks",
 	}
 }
