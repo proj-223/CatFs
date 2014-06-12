@@ -88,7 +88,7 @@ const (
 
 var (
 	DefaultMasterConfig = &MasterConfig{
-		Host: "54.186.112.183",
+		Host: "master.cse223.sheimi.me",
 		Port: "10000",
 	}
 	DefaultGeneralConfig = &GeneralConfig{
@@ -100,9 +100,9 @@ var (
 		master:  DefaultMasterConfig,
 		general: DefaultGeneralConfig,
 		dataServers: []*DataServerConfig{
-			DefaultDataServerConfig("54.201.113.175"),
-			DefaultDataServerConfig("54.186.170.174"),
-			DefaultDataServerConfig("54.213.161.204"),
+			DefaultDataServerConfig("data0.cse223.sheimi.me"),
+			DefaultDataServerConfig("data1.cse223.sheimi.me"),
+			DefaultDataServerConfig("data2.cse223.sheimi.me"),
 		},
 	}
 )
