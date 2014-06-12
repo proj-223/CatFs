@@ -26,17 +26,9 @@ var (
 	ErrOperationFailed = errors.New("Operation Failed")
 )
 
-var (
-	DefaultDataServers []*DataServer = []*DataServer{
-		NewDataServer(config.DefaultMachineConfig, 0),
-		NewDataServer(config.DefaultMachineConfig, 1),
-		NewDataServer(config.DefaultMachineConfig, 2),
-		NewDataServer(config.DefaultMachineConfig, 3),
-	}
-)
-
 func Serve(index int) error {
-	return DefaultDataServers[index].Serve()
+	server := NewDataServer(config.DefaultMachineConfig, proc.ServerLocation(index))
+	return server.Serve()
 }
 
 // Create a new Master Server
