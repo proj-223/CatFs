@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
-	"hash/fnv"
+	//"hash/fnv"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
+	"sort"
 	"time"
 )
 
@@ -23,6 +24,22 @@ type FileLease struct {
 type ServerStatus struct {
 	LastUpdate time.Time
 	Status     *proc.DataServerStatus
+}
+
+type ServerList struct {
+	L []*proc.DataServerStatus
+}
+
+func (s ServerList) Len() int {
+	return len(s.L)
+}
+
+func (s ServerList) Swap(i, j int) {
+	s.L[i], s.L[j] = s.L[j], s.L[i]
+}
+
+func (s ServerList) Less(i, j int) bool {
+	return s.L[i].DataSize < s.L[j].DataSize
 }
 
 type Master struct {
@@ -49,7 +66,7 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 		return ErrNoSuchFile
 	}
 	start_idx := (int)(query.Offset / self.conf.BlockSize())
-	end_idx := (int)((query.Offset + query.Length) / self.conf.BlockSize())
+	end_idx := (int)((query.Offset + query.Length - 1) / self.conf.BlockSize())
 	block_count := len(file.Blocklist)
 	if end_idx >= block_count-1 {
 		end_idx = block_count - 1
@@ -66,27 +83,23 @@ func (self *Master) GetBlockLocation(query *proc.BlockQueryParam, resp *proc.Get
 }
 
 func (self *Master) getReplicas(path string, replica *proc.CatBlock) error {
-	hash := fnv.New32a()
-	hash.Write([]byte(path))
-	hash_int := hash.Sum32()
-	//fmt.Println("hash_int: ", hash_int)
-	i := 0
-	server_num := len(self.livemap)
 	//fmt.Println("server_num: ",server_num)
 	replica.Locations = make([]proc.ServerLocation, 0)
-	for len(replica.Locations) < self.conf.ReplicaCount() {
-		if i == len(self.livemap) {
-			return ErrNotEnoughAliveServer
-		}
-		idx := (proc.ServerLocation)((int(hash_int) + i) % server_num)
-		if idx < 0 {
-			idx = idx + (proc.ServerLocation)(server_num)
-		}
-		//key := self.dataserver_addr[int(idx)]
-		if self.livemap[idx] {
-			replica.Locations = append(replica.Locations, idx)
-		}
-		i++
+
+	//Naively using sort
+	data_status_list := &ServerList{}
+	for _, v := range self.StatusList {
+		data_status := v.Status
+		data_status_list.L = append(data_status_list.L, data_status)
+	}
+
+	if len(data_status_list.L) < self.conf.ReplicaCount() {
+		return ErrNotEnoughAliveServer
+	}
+
+	sort.Sort(data_status_list)
+	for _, v := range data_status_list.L[:self.conf.ReplicaCount()] {
+		replica.Locations = append(replica.Locations, v.Location)
 	}
 
 	replica.ID = uuid.New()
@@ -191,6 +204,15 @@ func (self *Master) loadCommand() {
 					//println("add command ", src, backup)
 					Cmd := &proc.MasterCommand{Command: proc.MigrationCommand, Blocks: []string{ID}, DstMachine: backup}
 					self.appendCommand(src, Cmd)
+					//also modify block location
+					old_idx := 0
+					for i, loc := range self.blockmap[ID].Locations {
+						if loc == addr {
+							old_idx = i
+							break
+						}
+					}
+					self.blockmap[ID].Locations[old_idx] = backup
 				}
 			} else {
 				//else create clean command if necessary
@@ -198,14 +220,22 @@ func (self *Master) loadCommand() {
 					//check whether the current server is in the three replica,
 					//if not, clean it
 					isIn := false
-					for _, loc := range self.blockmap[ID].Locations {
-						if loc == addr {
-							isIn = true
-							break
+					block, ok := self.blockmap[ID]
+					if ok {
+						for _, loc := range block.Locations {
+							println("block ", ID, " location: ", self.blockmap[ID].Locations[0], self.blockmap[ID].Locations[1], self.blockmap[ID].Locations[2])
+							if loc == addr {
+								isIn = true
+								break
+							}
 						}
 					}
 					if !isIn {
-						Cmd := &proc.MasterCommand{Command: proc.CleanCommand, Blocks: []string{ID}, DstMachine: addr}
+						Cmd := &proc.MasterCommand{
+							Command:    proc.CleanCommand,
+							Blocks:     []string{ID},
+							DstMachine: addr,
+						}
 						self.appendCommand(addr, Cmd)
 					}
 				}
@@ -215,11 +245,12 @@ func (self *Master) loadCommand() {
 }
 
 func (self *Master) StartMonitor() {
+	println("Start monitoring")
 	monitor := func() {
 		for {
 			//fmt.Println("start monitor")
 			self.loadCommand()
-			time.Sleep(self.conf.HeartBeatInterval())
+			time.Sleep((time.Duration)(3 * self.conf.HeartBeatInterval() / 2))
 		}
 	}
 	go monitor()
@@ -340,6 +371,7 @@ func (self *Master) AddBlock(param *proc.AddBlockParam, block *proc.CatBlock) er
 			Status: proc.BLOCK_OK,
 		}
 		self.StatusList[loc].Status.BlockReports[block.ID] = block_report
+		self.StatusList[loc].Status.DataSize = self.StatusList[loc].Status.DataSize + (uint64)(self.conf.BlockSize())
 	}
 	return nil
 }
@@ -484,7 +516,10 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 
 // Register a data server
 func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
-	self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
+	self.StatusList[param.Status.Location] = &ServerStatus{
+		LastUpdate: time.Now(),
+		Status:     param.Status,
+	}
 	self.livemap[param.Status.Location] = true
 	log.Printf("DataServer %d registered", param.Status.Location)
 	*succ = true
@@ -494,15 +529,9 @@ func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool
 // Send heartbeat to master
 func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
 	//fmt.Println("send heartbeat null", param.Status == nil )
-	st, ok := self.StatusList[param.Status.Location]
-	if !ok {
-		self.StatusList[param.Status.Location] = &ServerStatus{
-			LastUpdate: time.Now(),
-			Status:     param.Status,
-		}
-		st = self.StatusList[param.Status.Location]
-	} else {
-		st.LastUpdate = time.Now()
+	self.StatusList[param.Status.Location] = &ServerStatus{
+		LastUpdate: time.Now(),
+		Status:     param.Status,
 	}
 	//check whether there are commands pending to be sent
 	cmdList := self.CommandList[param.Status.Location]
@@ -510,7 +539,12 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 	for flag := true; flag; {
 		select {
 		case Cmd := <-cmdList:
-			//println("retrieve cmd", Cmd)
+			k := param.Status.Location
+			if Cmd.Command == proc.MigrationCommand {
+				println("send cmd: copy blocks ", Cmd.Blocks[0], " from ", k, " to ", Cmd.DstMachine)
+			} else if Cmd.Command == proc.CleanCommand {
+				println("send cmd: clean block ", Cmd.Blocks[0], "on server ", k)
+			}
 			rep.Command = append(rep.Command, Cmd)
 		default:
 			//println("no more command")
@@ -530,7 +564,7 @@ func (self *Master) BlockReport(param *proc.BlockReportParam, rep *proc.BlockRep
 func (self *Master) initRPCServer(done chan error) {
 	server := rpc.NewServer()
 	server.Register(proc.MasterProtocol(self))
-	l, err := net.Listen("tcp", self.conf.MasterAddr())
+	l, err := net.Listen("tcp", ":"+self.conf.MasterPort())
 	if err != nil {
 		done <- err
 		return

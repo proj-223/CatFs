@@ -69,6 +69,7 @@ func (self *DataServer) examServerRoutine() {
 		DataSize:     dataSize,
 		BlockReports: blockReports,
 	}
+	println(len(blockReports))
 	heartbeat := &proc.HeartbeatParam{
 		Status: serverStatus,
 	}

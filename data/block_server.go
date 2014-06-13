@@ -4,6 +4,7 @@ import (
 	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
+	"io"
 	"log"
 	"net"
 )
@@ -43,7 +44,7 @@ func NewProviderTransaction(leaseID string, provider <-chan []byte) *Transaction
 type BlockServer struct {
 	transactions map[string]*Transaction
 	conf         *config.MachineConfig
-	addr         string
+	port         string
 	location     proc.ServerLocation
 	leaseManager *LeaseManager
 }
@@ -51,11 +52,11 @@ type BlockServer struct {
 // Start by DataNode
 // It will start an go routine waiting for block request
 func (self *BlockServer) Serve() error {
-	listener, err := net.Listen("tcp", self.addr)
+	listener, err := net.Listen("tcp", ":"+self.port)
 	if err != nil {
 		return err
 	}
-	log.Printf(Block_Server_START_MSG, self.addr)
+	log.Printf(Block_Server_START_MSG, self.port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -136,18 +137,20 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 	// anyway, close the connection
 	defer conn.Close()
 	// make the transaction done
-	buf := make([]byte, pool.BLOCK_BUFFER_SIZE)
+	// ack
+	_, err := conn.Write(pool.RESPONSE_PELEASE_SEND)
+	if err != nil {
+		// Log the error and return
+		log.Printf("Error write: %s\n", err.Error())
+		self.redirect(transID, nil)
+		return
+	}
+	buf := make([]byte, pool.BLOCK_BUFFER_SIZE_PACED)
 	for {
-		// ack
-		_, err := conn.Write(pool.RESPONSE_PELEASE_SEND)
-		if err != nil {
-			// Log the error and return
-			log.Printf("Error write: %s\n", err.Error())
-			self.redirect(transID, nil)
-			return
-		}
-
 		n, err := conn.Read(buf)
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			// Log the error
 			log.Printf("Error read: %s\n", err.Error())
@@ -156,50 +159,24 @@ func (self *BlockServer) handleSendRequest(conn net.Conn, transID string) {
 			self.redirect(transID, nil)
 			return
 		}
-		var bs pool.BlockStruct
-		err = pool.FromBytes(buf[:n], &bs)
-		if err != nil {
-			// Log the error the return
-			log.Println(err.Error())
-			self.redirect(transID, nil)
-			return
-		}
-		if bs.Finished {
-			break
-		}
-		self.redirect(transID, bs.Data)
+		self.redirect(transID, buf[:n])
 	}
 }
 
 func (self *BlockServer) handleGetRequest(conn net.Conn, transID string) {
 	// anyway, finish transaction
 	defer self.FinishTransaction(transID)
-	reqBuf := make([]byte, pool.BLOCK_REQUEST_SIZE)
+	defer conn.Close()
 	for {
 		data, ok := <-self.transactions[transID].provider
 		if !ok {
-			// finished
-			buf := pool.ToBytes(&pool.BlockStruct{
-				Finished: true,
-			})
-			conn.Write(buf)
 			return
 		}
-		buf := pool.ToBytes(&pool.BlockStruct{
-			Finished: false,
-			Data:     data,
-		})
 		// write to client
-		_, err := conn.Write(buf)
+		_, err := conn.Write(data)
 		if err != nil {
 			// if there is an error
 			log.Println(err.Error())
-			return
-		}
-		// get the ack from client
-		_, err = conn.Read(reqBuf)
-		if err != nil {
-			log.Printf("Error read: %s\n", err.Error())
 			return
 		}
 	}
@@ -216,12 +193,12 @@ func (self *BlockServer) registerLeaseListener() {
 }
 
 func NewBlockServer(location proc.ServerLocation, conf *config.MachineConfig, leaseManager *LeaseManager) *BlockServer {
-	addr := conf.BlockServerAddr(int(location))
+	port := conf.BlockServerPort(int(location))
 	bs := &BlockServer{
 		conf:         conf,
 		transactions: make(map[string]*Transaction),
 		leaseManager: leaseManager,
-		addr:         addr,
+		port:         port,
 		location:     location,
 	}
 	bs.registerLeaseListener()

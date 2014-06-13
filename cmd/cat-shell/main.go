@@ -19,6 +19,8 @@ const cmdHelp = `Command List:
   mkdir [a]
   cd [a]
   ls or ls [a]
+  write_new [name] [data]
+  cat [name]
   help
   exit
 `

@@ -11,7 +11,7 @@ import (
 )
 
 const BLOCK_SIZE = 1 << 20
-const HEARTBEAT_INTERVAL = time.Second * 10
+const HEARTBEAT_INTERVAL = time.Second * 1
 
 func TestExample(t *testing.T) {
 	fmt.Println("Hello, World!")
@@ -39,8 +39,8 @@ func as(cond bool, t *testing.T) {
 }
 
 func createMaster() *Master {
-	myroot := &GFSFile{
-		File_map:  make(map[string]*GFSFile),
+	myroot := &CFSFile{
+		File_map:  make(map[string]*CFSFile),
 		IsDir:     true,
 		Blocklist: make([]string, 0),
 		Lease_map: make(map[string]*proc.CatFileLease),
@@ -56,7 +56,7 @@ func createMaster() *Master {
 		conf:     config.DefaultMachineConfig,
 		root:     *myroot,
 		blockmap: make(map[string]*proc.CatBlock),
-		//mapping from LeaseID to CatFileLease and GFSFile
+		//mapping from LeaseID to CatFileLease and CFSFile
 		master_lease_map: make(map[string]*FileLease),
 		livemap:          server_livemap,
 		lockmgr:          *lockmanager,
@@ -128,9 +128,13 @@ func TestBasics(t *testing.T) {
 		catblock := &proc.CatBlock{}
 		e = master.AddBlock(addblockparam, catblock)
 		ne(e, t)
-		//fmt.Println(catblock.ID)
-		//fmt.Println(catblock.Locations)
+		println("Add block to file: ", paths[i], ", block location: ", catblock.Locations[0], catblock.Locations[1], catblock.Locations[2])
 		as(len(catblock.ID) > 0 && catblock.Locations != nil, t)
+		/*e = master.AddBlock(addblockparam, catblock)
+		ne(e, t)
+		println("Add block to file: ", paths[i], ", block location: ",catblock.Locations[0],catblock.Locations[1],catblock.Locations[2])
+		as(len(catblock.ID) > 0 && catblock.Locations != nil, t)*/
+
 	}
 
 	e = master.Open(openFileparam, createFileResponse)

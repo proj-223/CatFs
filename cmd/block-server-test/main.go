@@ -9,27 +9,30 @@ func main() {
 	id := "AA33016C-B0C8-48E8-8238-5E06B9EB27D8"
 	b := data.NewBlockServer(0, config.DefaultMachineConfig, data.NewLeaseManager())
 	c := make(chan []byte)
-	done := make(chan bool)
-	trans := data.NewReadTransaction(id, done, c)
+	trans := data.NewProviderTransaction(id, c)
 	b.StartTransaction(trans)
-	/*
-		go func() {
-			c <- []byte("fuck fuck fuck fuck fuck fuck")
-		}()
-	*/
-
 	go func() {
-		<-done
+		c <- []byte("fuck fuck fuck fuck fuck fuck")
 		println("done")
 	}()
-	go func() {
-		for {
-			b, ok := <-c
-			if !ok {
-				break
+
+	/*
+		done := make(chan bool)
+		trans := data.NewReadTransaction(id, done, c)
+		b.StartTransaction(trans)
+		go func() {
+			<-done
+			println("done")
+		}()
+		go func() {
+			for {
+				b, ok := <-c
+				if !ok {
+					break
+				}
+				println(string(b))
 			}
-			println(string(b))
-		}
-	}()
+		}()
+	*/
 	b.Serve()
 }
