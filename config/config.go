@@ -96,7 +96,7 @@ var (
 		ReplicaCount:      3,
 		HeartBeatInterval: 5,
 	}
-	DefaultMachineConfig = &MachineConfig{
+	conf = &MachineConfig{
 		Master:  DefaultMasterConfig,
 		General: DefaultGeneralConfig,
 		DataServers: []*DataServerConfig{
