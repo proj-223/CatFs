@@ -2,13 +2,10 @@ package master
 
 import (
 	"errors"
-	"time"
 )
 
 const (
-	START_MSG      = "CatFS Master RPC are start: %s"
-	HEARTBEAT_TICK = 5 * time.Second
-	CHANNEL_SIZE   = 100
+	START_MSG = "CatFS Master RPC are start: %s"
 )
 
 var (

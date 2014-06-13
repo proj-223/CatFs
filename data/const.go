@@ -2,7 +2,6 @@ package data
 
 import (
 	"errors"
-	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
 	"time"
@@ -27,18 +26,17 @@ var (
 )
 
 func Serve(index int) error {
-	server := NewDataServer(config.DefaultMachineConfig, proc.ServerLocation(index))
+	server := NewDataServer(proc.ServerLocation(index))
 	return server.Serve()
 }
 
 // Create a new Master Server
-func NewDataServer(conf *config.MachineConfig, location proc.ServerLocation) *DataServer {
+func NewDataServer(location proc.ServerLocation) *DataServer {
 	leaseManager := NewLeaseManager()
 	ds := &DataServer{
-		pool:         pool.NewClientPool(conf),
-		conf:         conf,
+		pool:         pool.NewClientPool(),
 		location:     location,
-		blockServer:  NewBlockServer(location, conf, leaseManager),
+		blockServer:  NewBlockServer(location, leaseManager),
 		pipelineMap:  make(map[string]*PipelineParam),
 		leaseMap:     make(map[string]*proc.CatLease),
 		leaseManager: leaseManager,

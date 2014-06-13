@@ -1,15 +1,12 @@
 package data
 
 import (
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"io/ioutil"
 	"log"
 	"syscall"
 	"time"
-)
-
-const (
-	HEARTBEAT_TICK = 5 * time.Second
 )
 
 func (self *DataServer) registerDataServer() error {
@@ -46,7 +43,7 @@ func (self *DataServer) examServer(done chan<- error) {
 		return
 	}
 	log.Printf("Server Registered to master")
-	c := time.Tick(HEARTBEAT_TICK)
+	c := time.Tick(config.HeartBeatInterval())
 	for _ = range c {
 		go self.examServerRoutine()
 	}

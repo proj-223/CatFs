@@ -94,7 +94,7 @@ var (
 	DefaultGeneralConfig = &GeneralConfig{
 		BlockSize:         1 << 20,
 		ReplicaCount:      3,
-		HeartBeatInterval: 10 * time.Second,
+		HeartBeatInterval: 5 * time.Second,
 	}
 	DefaultMachineConfig = &MachineConfig{
 		master:  DefaultMasterConfig,

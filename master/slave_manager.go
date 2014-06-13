@@ -39,7 +39,7 @@ func (self *Slave) Update(status *proc.DataServerStatus) {
 }
 
 func (self *Slave) IsAlive(cpm time.Time) bool {
-	return self.lastUpdate.Add(HEARTBEAT_TICK * 2).After(cpm)
+	return self.lastUpdate.Add(config.HeartBeatInterval() * 2).After(cpm)
 }
 
 func (self *Slave) AppendMigration(dst proc.ServerLocation, blockId string) {
@@ -177,7 +177,7 @@ func (self *SlaveManager) AppendMigration(src, dst proc.ServerLocation, blockId 
 
 func (self *SlaveManager) Exam() {
 	// TODO verify
-	c := time.Tick(HEARTBEAT_TICK * 3)
+	c := time.Tick(config.HeartBeatInterval() * 3)
 	for _ = range c {
 		println("tick")
 		go self.examSlaveAliveRoutine()

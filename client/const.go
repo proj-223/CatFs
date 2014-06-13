@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"github.com/proj-223/CatFs/config"
 	"github.com/proj-223/CatFs/protocols/pool"
 )
 
@@ -12,10 +11,9 @@ var (
 	ErrNoBlocks     = errors.New("No Blocks")
 )
 
-func NewCatClient(conf *config.MachineConfig) *CatClient {
+func NewCatClient() *CatClient {
 	return &CatClient{
-		pool:   pool.NewClientPool(conf),
-		conf:   conf,
+		pool:   pool.NewClientPool(),
 		curdir: "/",
 	}
 }

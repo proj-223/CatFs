@@ -1,12 +1,11 @@
 package client
 
 import (
-	"github.com/proj-223/CatFs/config"
 	"os"
 )
 
 var (
-	DefaultCatClient *CatClient = NewCatClient(config.DefaultMachineConfig)
+	DefaultCatClient *CatClient = NewCatClient()
 )
 
 // Chdir changes the current working directory to the named directory. If there

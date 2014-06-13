@@ -1,7 +1,6 @@
 package client
 
 import (
-	"github.com/proj-223/CatFs/config"
 	ms "github.com/proj-223/CatFs/master"
 	proc "github.com/proj-223/CatFs/protocols"
 	"github.com/proj-223/CatFs/protocols/pool"
@@ -15,7 +14,6 @@ const (
 
 type CatClient struct {
 	pool   *pool.ClientPool
-	conf   *config.MachineConfig
 	curdir string // current working directory
 }
 
@@ -157,7 +155,6 @@ func (self *CatClient) GetFile(name string) *CatFile {
 		path:   path,
 		pool:   self.pool,
 		opened: false,
-		conf:   self.conf,
 	}
 }
 
