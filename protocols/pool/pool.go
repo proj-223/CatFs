@@ -59,8 +59,8 @@ func NewClientPool() *ClientPool {
 		master: NewMasterClient(),
 	}
 	addrs := config.DataServerAddrs()
-	for _, addr := range addrs {
-		cp.dataServers = append(cp.dataServers, NewDataClient(addr))
+	for i := range addrs {
+		cp.dataServers = append(cp.dataServers, NewDataClient(i))
 	}
 	return cp
 }
