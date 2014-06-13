@@ -41,9 +41,9 @@ type BlockClient struct {
 	addr string
 }
 
-func NewBlockClient(index int, conf *config.MachineConfig) *BlockClient {
+func NewBlockClient(index int) *BlockClient {
 	return &BlockClient{
-		addr: conf.BlockServerAddr(index),
+		addr: config.BlockServerAddr(index),
 	}
 }
 

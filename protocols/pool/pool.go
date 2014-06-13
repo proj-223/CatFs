@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	DefaultClientPool = NewClientPool(config.DefaultMachineConfig)
+	DefaultClientPool = NewClientPool()
 )
 
 func MasterServer() *MasterRPCClient {
@@ -24,7 +24,6 @@ func Close() {
 type ClientPool struct {
 	master      *MasterRPCClient
 	dataServers []*DataRPCClient
-	conf        *config.MachineConfig
 }
 
 // Get the Master Server Client
@@ -42,7 +41,7 @@ func (self *ClientPool) DataServer(index proc.ServerLocation) *DataRPCClient {
 
 // Get new Block Client
 func (self *ClientPool) NewBlockClient(index proc.ServerLocation) *BlockClient {
-	client := NewBlockClient(int(index), self.conf)
+	client := NewBlockClient(int(index))
 	return client
 }
 
@@ -55,12 +54,11 @@ func (self *ClientPool) Close() {
 }
 
 // init a new Client Pool
-func NewClientPool(conf *config.MachineConfig) *ClientPool {
+func NewClientPool() *ClientPool {
 	cp := &ClientPool{
-		master: NewMasterClient(conf.MasterAddr()),
-		conf:   conf,
+		master: NewMasterClient(config.MasterAddr()),
 	}
-	addrs := conf.DataServerAddrs()
+	addrs := config.DataServerAddrs()
 	for _, addr := range addrs {
 		cp.dataServers = append(cp.dataServers, NewDataClient(addr))
 	}

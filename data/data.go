@@ -38,7 +38,6 @@ func NewPipelineParam(lease *proc.CatLease, param *proc.PrepareBlockParam) *Pipe
 
 type DataServer struct {
 	pool         *pool.ClientPool
-	conf         *config.MachineConfig
 	location     proc.ServerLocation
 	blockServer  *BlockServer
 	pipelineMap  map[string]*PipelineParam
@@ -127,11 +126,11 @@ func (self *DataServer) GetBlock(param *proc.GetBlockParam, lease *proc.CatLease
 }
 
 func (self *DataServer) addr() string {
-	return self.conf.DataServerAddr(int(self.location))
+	return config.DataServerAddr(int(self.location))
 }
 
 func (self *DataServer) port() string {
-	return self.conf.DataServerPort(int(self.location))
+	return config.DataServerPort(int(self.location))
 }
 
 // go routine to init the data rpc server

@@ -16,10 +16,11 @@ var (
 )
 
 type Slave struct {
-	status     *proc.DataServerStatus
-	lastUpdate time.Time
-	locker     sync.Locker
-	commands   chan *proc.MasterCommand
+	status            *proc.DataServerStatus
+	lastUpdate        time.Time
+	locker            sync.Locker
+	blocksToClean     []string
+	migrationCommands map[proc.ServerLocation]*proc.MasterCommand
 }
 
 func (self *Slave) BlockNum() int {
@@ -38,19 +39,35 @@ func (self *Slave) Update(status *proc.DataServerStatus) {
 }
 
 func (self *Slave) IsAlive(cpm time.Time) bool {
-	return self.lastUpdate.Add(HEARTBEAT_TICK * 2).After(cpm)
+	return self.lastUpdate.Add(config.HeartBeatInterval() * 2).After(cpm)
 }
 
-func (self *Slave) AppendCommand(cmd *proc.MasterCommand) {
-	go func() {
-		self.commands <- cmd
-	}()
+func (self *Slave) AppendMigration(dst proc.ServerLocation, blockId string) {
+	self.locker.Lock()
+	defer self.locker.Unlock()
+	if cmd, ok := self.migrationCommands[dst]; ok {
+		// if there is an command for dst
+		cmd.Blocks = append(cmd.Blocks, blockId)
+		return
+	}
+	cmd := &proc.MasterCommand{
+		Command:    proc.MigrationCommand,
+		Blocks:     []string{blockId},
+		DstMachine: dst,
+	}
+	self.migrationCommands[dst] = cmd
 }
 
 func (self *Slave) Migrate() {
 	for _, block := range self.status.BlockReports {
 		go blockManager.MigrateBlock(block.ID, self.Location())
 	}
+}
+
+func (self *Slave) cleanBlock(id string) {
+	self.locker.Lock()
+	defer self.locker.Unlock()
+	self.blocksToClean = append(self.blocksToClean, id)
 }
 
 func (self *Slave) ExamBlock() {
@@ -69,25 +86,25 @@ func (self *Slave) ExamBlock() {
 	}
 }
 
-func (self *Slave) cleanBlock(id string) {
-	cmd := &proc.MasterCommand{
-		Command: proc.CleanCommand,
-		Blocks:  []string{id},
-	}
-	self.AppendCommand(cmd)
-}
-
 func (self *Slave) GetCommands() []*proc.MasterCommand {
+	self.locker.Lock()
+	defer self.locker.Unlock()
+
 	var commands []*proc.MasterCommand
-	for {
-		select {
-		case cmd := <-self.commands:
-			commands = append(commands, cmd)
-		default:
-			return commands
+	if len(self.blocksToClean) > 0 {
+		cleanCmd := &proc.MasterCommand{
+			Command: proc.CleanCommand,
+			Blocks:  self.blocksToClean,
 		}
+		// set it to nil
+		self.blocksToClean = nil
+		commands = append(commands, cleanCmd)
 	}
-	return nil
+	for _, cmd := range self.migrationCommands {
+		commands = append(commands, cmd)
+	}
+	self.migrationCommands = make(map[proc.ServerLocation]*proc.MasterCommand)
+	return commands
 }
 
 type SlaveHeap []*Slave
@@ -133,8 +150,8 @@ func (self *SlaveManager) NewBlockReplica() []proc.ServerLocation {
 // register a slave
 func (self *SlaveManager) RegisterSlave(status *proc.DataServerStatus) {
 	slave := &Slave{
-		locker:   new(sync.Mutex),
-		commands: make(chan *proc.MasterCommand, CHANNEL_SIZE),
+		locker:            new(sync.Mutex),
+		migrationCommands: make(map[proc.ServerLocation]*proc.MasterCommand),
 	}
 	slave.Update(status)
 	self.locker.Lock()
@@ -153,14 +170,14 @@ func (self *SlaveManager) UpdateSlave(status *proc.DataServerStatus) []*proc.Mas
 	return nil
 }
 
-func (self *SlaveManager) AppendCommand(loc proc.ServerLocation, cmd *proc.MasterCommand) {
-	slave := self.slaves[loc]
-	slave.AppendCommand(cmd)
+func (self *SlaveManager) AppendMigration(src, dst proc.ServerLocation, blockId string) {
+	slave := self.slaves[src]
+	slave.AppendMigration(dst, blockId)
 }
 
 func (self *SlaveManager) Exam() {
 	// TODO verify
-	c := time.Tick(HEARTBEAT_TICK * 3)
+	c := time.Tick(config.HeartBeatInterval() * 3)
 	for _ = range c {
 		println("tick")
 		go self.examSlaveAliveRoutine()

@@ -2,6 +2,7 @@ package data
 
 import (
 	"bufio"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"io"
 	"os"
@@ -94,5 +95,5 @@ func (self *DataServer) registerLeaseListener() {
 }
 
 func (self *DataServer) blockDir() string {
-	return self.conf.BlockPath(int(self.location))
+	return config.BlockPath(int(self.location))
 }

@@ -43,7 +43,6 @@ func NewProviderTransaction(leaseID string, provider <-chan []byte) *Transaction
 
 type BlockServer struct {
 	transactions map[string]*Transaction
-	conf         *config.MachineConfig
 	port         string
 	location     proc.ServerLocation
 	leaseManager *LeaseManager
@@ -192,10 +191,9 @@ func (self *BlockServer) registerLeaseListener() {
 	})
 }
 
-func NewBlockServer(location proc.ServerLocation, conf *config.MachineConfig, leaseManager *LeaseManager) *BlockServer {
-	port := conf.BlockServerPort(int(location))
+func NewBlockServer(location proc.ServerLocation, leaseManager *LeaseManager) *BlockServer {
+	port := config.BlockServerPort(int(location))
 	bs := &BlockServer{
-		conf:         conf,
 		transactions: make(map[string]*Transaction),
 		leaseManager: leaseManager,
 		port:         port,

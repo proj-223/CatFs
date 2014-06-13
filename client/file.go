@@ -28,7 +28,6 @@ type CatFile struct {
 	fileOffset      int64
 	lock            *sync.Mutex
 	isEOF           bool
-	conf            *config.MachineConfig
 	opened          bool
 }
 
@@ -124,14 +123,14 @@ func (self *CatFile) ReadAt(b []byte, off int64) (int, error) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	// blockOffset of off
-	blockOff := off / self.conf.BlockSize()
+	blockOff := off / config.BlockSize()
 	err := self.getBlock(blockOff)
 	if err != nil {
 		return 0, err
 	}
 
 	// offset of off in a block
-	offset := off % self.conf.BlockSize()
+	offset := off % config.BlockSize()
 	dataRead := 0
 	for {
 		n := copy(b[dataRead:], self.curBlockContent[self.offset():])
@@ -172,8 +171,8 @@ func (self *CatFile) getBlock(blockOff int64) error {
 	master := self.pool.MasterServer()
 	blockquery := &proc.BlockQueryParam{
 		Path:   self.path,
-		Offset: self.conf.BlockSize() * blockOff,
-		Length: self.conf.BlockSize(),
+		Offset: config.BlockSize() * blockOff,
+		Length: config.BlockSize(),
 		Lease:  self.lease,
 	}
 	// get block meta data
@@ -276,15 +275,15 @@ func (self *CatFile) WriteAt(b []byte, off int64) (int, error) {
 
 	dataWrite := 0
 	// blockOffset of off
-	blockOff := off / self.conf.BlockSize()
+	blockOff := off / config.BlockSize()
 	// ceiling of length / blocksize
 	fileBlockNumber := self.blockNumber()
-	offset := off % self.conf.BlockSize()
+	offset := off % config.BlockSize()
 
 	for {
 		// if it is the last block or more
 		if blockOff >= fileBlockNumber-1 {
-			offset += (blockOff - fileBlockNumber + 1) * self.conf.BlockSize()
+			offset += (blockOff - fileBlockNumber + 1) * config.BlockSize()
 			n, err := self.appendToLastBlock(b, offset)
 			dataWrite += n
 			// read enough or there is an err
@@ -326,7 +325,7 @@ func (self *CatFile) appendToLastBlock(b []byte, offset int64) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(self.curBlockContent) == int(self.conf.BlockSize()) {
+	if len(self.curBlockContent) == int(config.BlockSize()) {
 		// if the last block is full
 		// nothing to write
 		return 0, nil
@@ -334,7 +333,7 @@ func (self *CatFile) appendToLastBlock(b []byte, offset int64) (int, error) {
 	if offset > int64(len(self.curBlockContent)) {
 		offset = int64(len(self.curBlockContent))
 	}
-	blockRemain := int(self.conf.BlockSize() - offset)
+	blockRemain := int(config.BlockSize() - offset)
 	self.curChanged = true
 	if blockRemain >= len(b) {
 		self.curBlockContent = append(self.curBlockContent[:offset], b...)
@@ -360,7 +359,7 @@ func (self *CatFile) appendBlock(b []byte) (int, error) {
 			// TODO abandom block ?
 			return dataWrite, err
 		}
-		blockContent := make([]byte, self.conf.BlockSize())
+		blockContent := make([]byte, config.BlockSize())
 		n = copy(blockContent, b[dataWrite:])
 		dataWrite += n
 		blockContent = blockContent[:n]
@@ -384,17 +383,17 @@ func (self *CatFile) appendBlock(b []byte) (int, error) {
 }
 
 func (self *CatFile) offset() int64 {
-	return self.fileOffset % self.conf.BlockSize()
+	return self.fileOffset % config.BlockSize()
 }
 
 func (self *CatFile) blockOffset() int64 {
-	return self.fileOffset / self.conf.BlockSize()
+	return self.fileOffset / config.BlockSize()
 }
 
 func (self *CatFile) setFileOffset(blockOff, offset int64) {
-	self.fileOffset = blockOff*self.conf.BlockSize() + offset
+	self.fileOffset = blockOff*config.BlockSize() + offset
 }
 
 func (self *CatFile) blockNumber() int64 {
-	return (self.filestatus.Length-1)/self.conf.BlockSize() + 1
+	return (self.filestatus.Length-1)/config.BlockSize() + 1
 }

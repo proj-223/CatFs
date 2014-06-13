@@ -20,66 +20,66 @@ type DataServerConfig struct {
 type GeneralConfig struct {
 	ReplicaCount      int
 	BlockSize         int64
-	HeartBeatInterval time.Duration
+	HeartBeatInterval int
 }
 
 type MachineConfig struct {
-	master      *MasterConfig
-	dataServers []*DataServerConfig
-	general     *GeneralConfig
+	Master      *MasterConfig
+	DataServers []*DataServerConfig
+	General     *GeneralConfig
 }
 
 func (self *MachineConfig) MasterPort() string {
-	return self.master.Port
+	return self.Master.Port
 }
 
 func (self *MachineConfig) DataServerPort(index int) string {
-	return self.dataServers[index].Port
+	return self.DataServers[index].Port
 }
 
 func (self *MachineConfig) BlockServerPort(index int) string {
-	return self.dataServers[index].BlockServerPort
+	return self.DataServers[index].BlockServerPort
 }
 
 func (self *MachineConfig) MasterAddr() string {
-	return fmt.Sprintf("%s:%s", self.master.Host, self.master.Port)
+	return fmt.Sprintf("%s:%s", self.Master.Host, self.Master.Port)
 }
 
 func (self *MachineConfig) DataServerAddr(index int) string {
-	return fmt.Sprintf("%s:%s", self.dataServers[index].Host,
-		self.dataServers[index].Port)
+	return fmt.Sprintf("%s:%s", self.DataServers[index].Host,
+		self.DataServers[index].Port)
 }
 
 func (self *MachineConfig) DataServerHost(index int) string {
-	return self.dataServers[index].Host
+	return self.DataServers[index].Host
 }
 
 func (self *MachineConfig) DataServerAddrs() []string {
 	var addrs []string
-	for i := range self.dataServers {
+	for i := range self.DataServers {
 		addrs = append(addrs, self.DataServerAddr(i))
 	}
 	return addrs
 }
 
 func (self *MachineConfig) BlockServerAddr(index int) string {
-	return fmt.Sprintf("%s:%s", self.dataServers[index].Host, self.dataServers[index].BlockServerPort)
+	return fmt.Sprintf("%s:%s", self.DataServers[index].Host, self.DataServers[index].BlockServerPort)
 }
 
 func (self *MachineConfig) BlockSize() int64 {
-	return self.general.BlockSize
+	return self.General.BlockSize
 }
 
 func (self *MachineConfig) BlockPath(index int) string {
-	return self.dataServers[index].BlockPath
+	return self.DataServers[index].BlockPath
 }
 
 func (self *MachineConfig) ReplicaCount() int {
-	return self.general.ReplicaCount
+	return self.General.ReplicaCount
 }
 
 func (self *MachineConfig) HeartBeatInterval() time.Duration {
-	return self.general.HeartBeatInterval
+	return time.Duration(self.General.HeartBeatInterval) * time.Second
 }
 
 const (
@@ -94,7 +94,7 @@ var (
 	DefaultGeneralConfig = &GeneralConfig{
 		BlockSize:         1 << 20,
 		ReplicaCount:      3,
-		HeartBeatInterval: 10 * time.Second,
+		HeartBeatInterval: 5,
 	}
 	DefaultMachineConfig = &MachineConfig{
 		master:  DefaultMasterConfig,
