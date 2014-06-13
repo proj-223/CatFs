@@ -131,8 +131,8 @@ func (self *MasterRPC) RegisterDataServer(param *proc.RegisterDataParam, succ *b
 
 // Send heartbeat to master
 func (self *MasterRPC) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
-	slaveManager.UpdateSlave(param.Status)
-	// TODO return commands
+	rep.Command = slaveManager.UpdateSlave(param.Status)
+	println("len command", len(rep.Command))
 	return nil
 }
 
