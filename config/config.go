@@ -97,9 +97,9 @@ var (
 		HeartBeatInterval: 5,
 	}
 	DefaultMachineConfig = &MachineConfig{
-		master:  DefaultMasterConfig,
-		general: DefaultGeneralConfig,
-		dataServers: []*DataServerConfig{
+		Master:  DefaultMasterConfig,
+		General: DefaultGeneralConfig,
+		DataServers: []*DataServerConfig{
 			DefaultDataServerConfig("data0.cse223.sheimi.me"),
 			DefaultDataServerConfig("data1.cse223.sheimi.me"),
 			DefaultDataServerConfig("data2.cse223.sheimi.me"),

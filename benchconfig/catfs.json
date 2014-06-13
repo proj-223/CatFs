@@ -1,0 +1,31 @@
+{
+    "Master": {
+        "Host": "master.cse223.sheimi.me",
+        "Port": "10000"
+    },
+    "DataServers": [
+        {
+            "Host": "data0.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data1.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data2.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        }
+    ],
+    "General": {
+        "ReplicaCount": 3,
+        "BlockSize": 1048576,
+        "HeartBeatInterval": 5
+    }
+}
