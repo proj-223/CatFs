@@ -207,7 +207,7 @@ func (self *Master) loadCommand() {
 					//also modify block location
 					old_idx := 0
 					for i, loc := range self.blockmap[ID].Locations {
-						if(loc == addr) {
+						if loc == addr {
 							old_idx = i
 							break
 						}
@@ -220,15 +220,22 @@ func (self *Master) loadCommand() {
 					//check whether the current server is in the three replica,
 					//if not, clean it
 					isIn := false
-					for _, loc := range self.blockmap[ID].Locations {
-						println("block ", ID, " location: ",self.blockmap[ID].Locations[0], self.blockmap[ID].Locations[1], self.blockmap[ID].Locations[2])
-						if loc == addr {
-							isIn = true
-							break
+					block, ok := self.blockmap[ID]
+					if ok {
+						for _, loc := range block.Locations {
+							println("block ", ID, " location: ", self.blockmap[ID].Locations[0], self.blockmap[ID].Locations[1], self.blockmap[ID].Locations[2])
+							if loc == addr {
+								isIn = true
+								break
+							}
 						}
 					}
 					if !isIn {
-						Cmd := &proc.MasterCommand{Command: proc.CleanCommand, Blocks: []string{ID}, DstMachine: addr}
+						Cmd := &proc.MasterCommand{
+							Command:    proc.CleanCommand,
+							Blocks:     []string{ID},
+							DstMachine: addr,
+						}
 						self.appendCommand(addr, Cmd)
 					}
 				}
@@ -243,7 +250,7 @@ func (self *Master) StartMonitor() {
 		for {
 			//fmt.Println("start monitor")
 			self.loadCommand()
-			time.Sleep((time.Duration)(3*self.conf.HeartBeatInterval()/2))
+			time.Sleep((time.Duration)(3 * self.conf.HeartBeatInterval() / 2))
 		}
 	}
 	go monitor()
@@ -509,7 +516,10 @@ func (self *Master) GetFileInfo(path string, filestatus *proc.CatFileStatus) err
 
 // Register a data server
 func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool) error {
-	self.StatusList[param.Status.Location] = &ServerStatus{LastUpdate: time.Now(), Status: param.Status}
+	self.StatusList[param.Status.Location] = &ServerStatus{
+		LastUpdate: time.Now(),
+		Status:     param.Status,
+	}
 	self.livemap[param.Status.Location] = true
 	log.Printf("DataServer %d registered", param.Status.Location)
 	*succ = true
@@ -519,15 +529,9 @@ func (self *Master) RegisterDataServer(param *proc.RegisterDataParam, succ *bool
 // Send heartbeat to master
 func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.HeartbeatResponse) error {
 	//fmt.Println("send heartbeat null", param.Status == nil )
-	st, ok := self.StatusList[param.Status.Location]
-	if !ok {
-		self.StatusList[param.Status.Location] = &ServerStatus{
-			LastUpdate: time.Now(),
-			Status:     param.Status,
-		}
-		st = self.StatusList[param.Status.Location]
-	} else {
-		st.LastUpdate = time.Now()
+	self.StatusList[param.Status.Location] = &ServerStatus{
+		LastUpdate: time.Now(),
+		Status:     param.Status,
 	}
 	//check whether there are commands pending to be sent
 	cmdList := self.CommandList[param.Status.Location]
@@ -536,9 +540,9 @@ func (self *Master) SendHeartbeat(param *proc.HeartbeatParam, rep *proc.Heartbea
 		select {
 		case Cmd := <-cmdList:
 			k := param.Status.Location
-			if(Cmd.Command == proc.MigrationCommand) {
+			if Cmd.Command == proc.MigrationCommand {
 				println("send cmd: copy blocks ", Cmd.Blocks[0], " from ", k, " to ", Cmd.DstMachine)
-			} else if (Cmd.Command == proc.CleanCommand) {
+			} else if Cmd.Command == proc.CleanCommand {
 				println("send cmd: clean block ", Cmd.Blocks[0], "on server ", k)
 			}
 			rep.Command = append(rep.Command, Cmd)
