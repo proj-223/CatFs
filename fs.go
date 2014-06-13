@@ -12,8 +12,8 @@ func NewClient(conf *config.MachineConfig) *client.CatClient {
 	return client.NewCatClient(conf)
 }
 
-func NewMasterServer(conf *config.MachineConfig) *master.Master {
-	return master.NewMasterServer(conf)
+func ServeMaster(path string) error {
+	return master.Serve()
 }
 
 func NewDataServer(conf *config.MachineConfig, location proc.ServerLocation) *data.DataServer {

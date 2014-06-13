@@ -33,7 +33,7 @@ func NewMasterClient(addr string) *MasterRPCClient {
 
 func (self *MasterRPCClient) Call(method string, args interface{}, reply interface{}) error {
 	var err error
-	method = fmt.Sprintf("Master.%s", method)
+	method = fmt.Sprintf("MasterRPC.%s", method)
 	for i := 0; i < MAX_RECONNECT; i++ {
 		if self.conn != nil {
 			err = self.conn.Call(method, args, reply)

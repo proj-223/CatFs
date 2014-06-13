@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	HEARTBEAT_TICK = 10 * time.Second
+	HEARTBEAT_TICK = 5 * time.Second
 )
 
 func (self *DataServer) registerDataServer() error {
@@ -69,6 +69,7 @@ func (self *DataServer) examServerRoutine() {
 		DataSize:     dataSize,
 		BlockReports: blockReports,
 	}
+	println(len(blockReports))
 	heartbeat := &proc.HeartbeatParam{
 		Status: serverStatus,
 	}
