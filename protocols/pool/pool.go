@@ -56,7 +56,7 @@ func (self *ClientPool) Close() {
 // init a new Client Pool
 func NewClientPool() *ClientPool {
 	cp := &ClientPool{
-		master: NewMasterClient(config.MasterAddr()),
+		master: NewMasterClient(),
 	}
 	addrs := config.DataServerAddrs()
 	for _, addr := range addrs {

@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-var conf *MachineConfig = DefaultMachineConfig
-
 func LoadConfig(path string) error {
 	fi, _ := os.Open(path)
 	defer fi.Close()
@@ -25,7 +23,7 @@ func LoadConfig(path string) error {
 }
 
 func WriteDefautConfig() error {
-	encoded, err := json.MarshalIndent(DefaultMachineConfig, "", "    ")
+	encoded, err := json.MarshalIndent(conf, "", "    ")
 	if err != nil {
 		log.Printf("Error Encode Configuration: %s", err.Error())
 		return err

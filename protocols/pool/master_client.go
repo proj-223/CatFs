@@ -2,6 +2,7 @@ package pool
 
 import (
 	"fmt"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"net/rpc"
 	"sync"
@@ -9,7 +10,6 @@ import (
 
 type MasterRPCClient struct {
 	conn *rpc.Client
-	addr string
 	lock *sync.Mutex
 }
 
@@ -18,7 +18,7 @@ func (self *MasterRPCClient) Connect() error {
 	self.lock.Lock()
 	defer self.lock.Unlock()
 	if self.conn == nil {
-		self.conn, err = rpc.DialHTTP("tcp", self.addr)
+		self.conn, err = rpc.DialHTTP("tcp", config.MasterAddr())
 	}
 	return err
 }
@@ -27,8 +27,8 @@ func (self *MasterRPCClient) CloseConn() error {
 	return self.conn.Close()
 }
 
-func NewMasterClient(addr string) *MasterRPCClient {
-	return &MasterRPCClient{addr: addr, lock: new(sync.Mutex)}
+func NewMasterClient() *MasterRPCClient {
+	return &MasterRPCClient{lock: new(sync.Mutex)}
 }
 
 func (self *MasterRPCClient) Call(method string, args interface{}, reply interface{}) error {
