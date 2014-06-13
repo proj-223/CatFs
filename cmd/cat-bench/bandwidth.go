@@ -3,17 +3,23 @@ package main
 import (
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/proj-223/CatFs/client"
+	"log"
+	"strconv"
 	"time"
 )
 
-func bandWidthBench(args []string) {
+func bandWidthBenchWrite(args []string) {
+	mb, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatal(err)
+	}
 	t1 := time.Now()
 	fi, err := client.Create(uuid.New())
 	if err != nil {
 		printError(err)
 		return
 	}
-	for i := 0; i < 100*(1<<10); i++ {
+	for i := 0; i < mb*(1<<10); i++ {
 		buf := make([]byte, 1<<10)
 		_, err := fi.Write(buf)
 		if err != nil {

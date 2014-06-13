@@ -15,8 +15,8 @@ func main() {
 		return
 	}
 	switch args[0] {
-	case "bandwidth":
-		bandWidthBench(args[1:])
+	case "bandwidth-write":
+		bandWidthBenchWrite(args[1:])
 	default:
 		fmt.Println("Benchmark not support")
 	}
