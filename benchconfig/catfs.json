@@ -21,6 +21,48 @@
             "Port": "10001",
             "BlockServerPort": "20000",
             "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data3.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data4.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data5.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data6.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data7.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data8.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
+        },
+        {
+            "Host": "data9.cse223.sheimi.me",
+            "Port": "10001",
+            "BlockServerPort": "20000",
+            "BlockPath": "/tmp/cat-fs-blocks"
         }
     ],
     "General": {
