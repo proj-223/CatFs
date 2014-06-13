@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/proj-223/CatFs/client"
+	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 	"io"
 	"os"
@@ -26,6 +27,7 @@ const cmdHelp = `Command List:
 `
 
 func main() {
+	config.LoadConfig("/tmp/catfs.json")
 	runPrompt()
 }
 

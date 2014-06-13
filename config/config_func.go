@@ -1,13 +1,37 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
 	"time"
 )
 
 var conf *MachineConfig = DefaultMachineConfig
 
-func LoadConfig(path string) {
-	conf = DefaultMachineConfig
+func LoadConfig(path string) error {
+	fi, _ := os.Open(path)
+	defer fi.Close()
+	decoder := json.NewDecoder(fi)
+	var _conf *MachineConfig
+	err := decoder.Decode(&_conf)
+	if err != nil {
+		log.Printf("Error Parse Configuration: %s", err.Error())
+		return err
+	}
+	conf = _conf
+	return nil
+}
+
+func WriteDefautConfig() error {
+	encoded, err := json.MarshalIndent(DefaultMachineConfig, "", "    ")
+	if err != nil {
+		log.Printf("Error Encode Configuration: %s", err.Error())
+		return err
+	}
+	fmt.Println(string(encoded))
+	return nil
 }
 
 func ReplicaCount() int {
