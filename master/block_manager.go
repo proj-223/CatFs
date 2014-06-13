@@ -57,12 +57,7 @@ func (self *Block) Migrate(notLoc proc.ServerLocation) {
 		index := self.findIndex(replia)
 		if index == -1 {
 			// TODO TODO better algorithm
-			cmd := &proc.MasterCommand{
-				Command:    proc.MigrationCommand,
-				Blocks:     []string{self.ID()},
-				DstMachine: replia,
-			}
-			slaveManager.AppendCommand(self.block.Locations[0], cmd)
+			slaveManager.AppendMigration(self.block.Locations[0], replia, self.ID())
 			return
 		}
 	}
