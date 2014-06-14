@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"github.com/proj-223/CatFs/config"
 	proc "github.com/proj-223/CatFs/protocols"
 )
 
@@ -23,20 +22,27 @@ func Close() {
 
 type ClientPool struct {
 	master      *MasterRPCClient
-	dataServers []*DataRPCClient
+	dataServers map[proc.ServerLocation]*DataRPCClient
 }
 
 // Get the Master Server Client
 func (self *ClientPool) MasterServer() *MasterRPCClient {
+	// TODO add lock here
+	if self.master == nil {
+		self.master = NewMasterClient()
+	}
 	return self.master
 }
 
 // Get the Data Server Client
 func (self *ClientPool) DataServer(index proc.ServerLocation) *DataRPCClient {
-	if int(index) >= len(self.dataServers) {
-		return nil
+	// TODO add lock here
+	if client, ok := self.dataServers[index]; ok {
+		return client
 	}
-	return self.dataServers[index]
+	client := NewDataClient(int(index))
+	self.dataServers[index] = client
+	return client
 }
 
 // Get new Block Client
@@ -56,11 +62,7 @@ func (self *ClientPool) Close() {
 // init a new Client Pool
 func NewClientPool() *ClientPool {
 	cp := &ClientPool{
-		master: NewMasterClient(),
-	}
-	addrs := config.DataServerAddrs()
-	for i := range addrs {
-		cp.dataServers = append(cp.dataServers, NewDataClient(i))
+		dataServers: make(map[proc.ServerLocation]*DataRPCClient),
 	}
 	return cp
 }
