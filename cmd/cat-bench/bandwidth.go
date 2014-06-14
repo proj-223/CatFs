@@ -101,3 +101,35 @@ func readOp(done chan bool, path string, mb int) {
 	fi.Close()
 	done <- true
 }
+
+func opBenchMkdir(args []string, f func(c *client.CatClient, fnn string)) {
+	worker, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	numop, err := strconv.Atoi(args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	done := make(chan bool, worker)
+	t1 := time.Now()
+	for i := 0; i < worker; i++ {
+		go mkdirOp(done, numop, f)
+	}
+	for i := 0; i < worker; i++ {
+		<-done
+	}
+	t2 := time.Now()
+	td := t2.UnixNano() - t1.UnixNano()
+	println(td)
+}
+
+func mkdirOp(done chan bool, num int, f func(c *client.CatClient, fnn string)) {
+	c := client.NewCatClient()
+	fn := uuid.New()
+	for i := 0; i < num; i++ {
+		fnn := fn + strconv.Itoa(i)
+		f(c, fnn)
+	}
+	done <- true
+}
