@@ -19,8 +19,8 @@ func bandWidthBenchWrite(args []string) {
 		printError(err)
 		return
 	}
+	buf := make([]byte, 1<<10)
 	for i := 0; i < mb*(1<<10); i++ {
-		buf := make([]byte, 1<<10)
 		_, err := fi.Write(buf)
 		if err != nil {
 			printError(err)
