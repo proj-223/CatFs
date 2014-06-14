@@ -9,12 +9,27 @@ import (
 )
 
 func bandWidthBenchWrite(args []string) {
-	mb, err := strconv.Atoi(args[0])
+	worker, err := strconv.Atoi(args[0])
+	mb, err := strconv.Atoi(args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
+	done := make(chan bool, worker)
 	t1 := time.Now()
-	fi, err := client.Create(uuid.New())
+	for i := 0; i < worker; i++ {
+		go writeOp(done, mb)
+	}
+	for i := 0; i < worker; i++ {
+		<-done
+	}
+	t2 := time.Now()
+	td := t2.UnixNano() - t1.UnixNano()
+	println(td)
+}
+
+func writeOp(done chan bool, mb int) {
+	c := client.NewCatClient()
+	fi, err := c.Create(uuid.New())
 	if err != nil {
 		printError(err)
 		return
@@ -28,9 +43,7 @@ func bandWidthBenchWrite(args []string) {
 		}
 	}
 	fi.Close()
-	t2 := time.Now()
-	td := t2.UnixNano() - t1.UnixNano()
-	println(td)
+	done <- true
 }
 
 func printError(err error) {
