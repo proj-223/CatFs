@@ -66,6 +66,7 @@ func (self *DataServer) readBlockFromDisk(data chan<- []byte, block *proc.CatBlo
 			close(data)
 			break
 		}
+		// TODO my send to cloased xxx if xxx
 		data <- buf[:n]
 	}
 }

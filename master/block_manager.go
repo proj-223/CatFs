@@ -56,6 +56,7 @@ func (self *Block) Migrate(notLoc proc.ServerLocation) {
 	for _, replia := range replias {
 		index := self.findIndex(replia)
 		if index == -1 {
+			// May Couse bug
 			// TODO TODO better algorithm
 			slaveManager.AppendMigration(self.block.Locations[0], replia, self.ID())
 			return
